@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}口译练习系统{% endblock %}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="container">
+            <a href="/" class="nav-brand">口译练习系统</a>
+            <button id="nav-toggle" aria-label="切换菜单" class="nav-toggle">☰</button>
+            <div class="nav-links">
+                <a href="/">首页</a>
+                <a href="/materials">素材管理</a>
+                <a href="/records">练习记录</a>
+                <a href="/config">配置</a>
+            </div>
+        </div>
+    </nav>
+
+    <main class="container">
+        {% block content %}{% endblock %}
+    </main>
+
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+    <script>
+        // 简单的移动端导航切换：在窄屏时切换 body.nav-open
+        (function(){
+            var btn = document.getElementById('nav-toggle');
+            if(!btn) return;
+            btn.addEventListener('click', function(e){
+                document.body.classList.toggle('nav-open');
+            });
+        })();
+    </script>
+    {% block scripts %}{% endblock %}
+</body>
+</html>

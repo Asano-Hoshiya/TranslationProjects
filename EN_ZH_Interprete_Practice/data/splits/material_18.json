@@ -1,0 +1,408 @@
+[
+  {
+    "index": 0,
+    "text": "Good afternoon, everyone. My name is Dominic Kundel, and I work on developer experience here at OpenAI. Before we get started, a quick raise of hands. How many of you are using a combination of open and proprietary models? All right, that's quite a lot. How many of you are using or have used GPT-OSS before? All right, that's more than I expected, but hopefully we can get it to 100% at the end of the talk.",
+    "start_time": 8.41,
+    "end_time": 33.07,
+    "audio_path": "materials/segments_18/segment_000_1763827323.mp3"
+  },
+  {
+    "index": 1,
+    "text": "So over the next 25 minutes, we'll talk about GPT-OSS, our latest open model series that we released in August earlier this year, why you might want to use them, and how they fit into the broader open AI ecosystem. But first, what is GPT-OSS? GPT-OSS is our model family consisting of two models. GPT-OSS 20B, our medium-sized model that can run on higher-end consumer hardware with at least 16 gigabytes of VRAM,",
+    "start_time": 33.07,
+    "end_time": 59.84,
+    "audio_path": "materials/segments_18/segment_001_1763827323.mp3"
+  },
+  {
+    "index": 2,
+    "text": "so a top-of-the-line consumer graphics card or a recent mid-tier MacBook. And then GPT-OSS 120B, our larger model that can run on a single 80-gigabyte GPU. like an NVIDIA H100, or an AMD MI300X, or even a top-of-the-line MacBook, like this 128-gigabyte MacBook Pro.",
+    "start_time": 59.84,
+    "end_time": 80.34,
+    "audio_path": "materials/segments_18/segment_002_1763827323.mp3"
+  },
+  {
+    "index": 3,
+    "text": "But why did we build these models? Well, first of all, because you all kept asking us to. But joking aside, we know that proprietary hosts of models aren't always an option for you. whether you have data requirements where your data needs to stay on premise for safety or privacy reasons, or you have specific hardware requirements where your data needs to stay on,",
+    "start_time": 80.34,
+    "end_time": 105.15,
+    "audio_path": "materials/segments_18/segment_003_1763827323.mp3"
+  },
+  {
+    "index": 4,
+    "text": "or you have specific hardware requirements or latency requirements. Or maybe your use case has to run completely offline because of flaky or nonexistent internet connections. There's a wide range of reasons why you might want to pick an open model, and we know that a lot of you already have to deal with that mix of proprietary and open models for your use cases. Because of that, we wanted to make sure that we offer you the best possible experience.",
+    "start_time": 105.15,
+    "end_time": 130.18,
+    "audio_path": "materials/segments_18/segment_004_1763827323.mp3"
+  },
+  {
+    "index": 5,
+    "text": "Both of the open models are reasoning models with variable levels of reasoning and raw chain of thought access. And they're the only open models that can perform tool calling as part of the chain of thought, including web browsing and Python tool calling, meaning the model can combine a series of tool calls and reason between them to more effectively achieve complex tasks.",
+    "start_time": 130.18,
+    "end_time": 153.87,
+    "audio_path": "materials/segments_18/segment_005_1763827323.mp3"
+  },
+  {
+    "index": 6,
+    "text": "And both of the models are permissively licensed under the Apache 2 license, meaning you can use them both in commercial applications or fine tune them to make them your own as long as you adhere to local laws in your region. These models should also instantly feel familiar to you if you've used our other reasoning models, like OpenAI's O3, O4 Mini, or GPT-5,",
+    "start_time": 153.87,
+    "end_time": 174.9,
+    "audio_path": "materials/segments_18/segment_006_1763827323.mp3"
+  },
+  {
+    "index": 7,
+    "text": "as they introduce the same variable reasoning, chain of thought function calling, browsing, and Python capabilities. In fact, GPT-OSS 120B and 20B have nothing to hide when you compare them to O3 and O4 Mini. On Humanity's last exam, for example, a benchmark designed to test AI at the frontier of human knowledge,",
+    "start_time": 174.9,
+    "end_time": 195.15,
+    "audio_path": "materials/segments_18/segment_007_1763827323.mp3"
+  },
+  {
+    "index": 8,
+    "text": "both GPT-OSS 20B and 120B perform on par with O4 Mini. Except in our case, GPT-OSS 20B can run entirely locally on your laptop. And even with complex math problems like AIME 2025, the models are able to keep up with O3 level performance. To repeat that, that is real state-of-the-art level intelligence that you can run now locally on your computer.",
+    "start_time": 195.15,
+    "end_time": 221.46,
+    "audio_path": "materials/segments_18/segment_008_1763827323.mp3"
+  },
+  {
+    "index": 9,
+    "text": "And these models are designed to be used in agentic use cases. So function calling performance is incredibly important. In Taobench Retail, for example, which tests the model's ability to use tools to resolve a retail customer service issue across multiple turns, both models are performing extremely well, especially given their size.",
+    "start_time": 221.46,
+    "end_time": 242.81,
+    "audio_path": "materials/segments_18/segment_009_1763827323.mp3"
+  },
+  {
+    "index": 10,
+    "text": "And overall, the models fit very well into our OpenAI ecosystem. You can use them in the Agents SDK or with Codec CLI. And increasingly, more providers like Grok, Hugging Face, VLLM, NVIDIA, and as of today, LM Studio, have started offering their own responses APIs. That way, they should work directly within your existing projects and allow you to mix and match them with other OpenAI models.",
+    "start_time": 242.81,
+    "end_time": 267.55,
+    "audio_path": "materials/segments_18/segment_010_1763827323.mp3"
+  },
+  {
+    "index": 11,
+    "text": "And when building these models, we tried to really listen to community feedback. And two of the biggest asks we heard from the community were for, one, us to not hold back when it comes to capabilities, especially for agentic use cases, and to have efficient models. And we tried to balance these two and are pretty happy with the result in the overall open models market space,",
+    "start_time": 267.55,
+    "end_time": 287.93,
+    "audio_path": "materials/segments_18/segment_011_1763827323.mp3"
+  },
+  {
+    "index": 12,
+    "text": "striking a great balance between performance and size. And the feedback from the community and our partners has been great so far. In total, it's been downloaded over 23 million times on our Hugging Face organization alone. And people love using the model for local use cases, tool calling capabilities, and the overall cost efficiency of the model.",
+    "start_time": 287.93,
+    "end_time": 311.79,
+    "audio_path": "materials/segments_18/segment_012_1763827323.mp3"
+  },
+  {
+    "index": 13,
+    "text": "Some of my favorite use cases of GPT-OSS so far came from our six-week-long hackathon that wrapped up a few weeks ago. You'll see some of the examples later on in the developer state of the union. But we've seen people use GPT-OSS for controlling robots, discussing sensitive topics in their own personal diaries,",
+    "start_time": 311.79,
+    "end_time": 332.18,
+    "audio_path": "materials/segments_18/segment_013_1763827323.mp3"
+  },
+  {
+    "index": 14,
+    "text": "fine-tuning it to be a subject matter expert on highly specialized topics, or even just to be a better storyteller. have it used in offline coding assistance, and even use its coding ability to create a fully on-premise cybersecurity operation center to help protect systems without disclosing sensitive data, just to name a few.",
+    "start_time": 332.18,
+    "end_time": 353.69,
+    "audio_path": "materials/segments_18/segment_014_1763827323.mp3"
+  },
+  {
+    "index": 15,
+    "text": "That's why we've invested in GPT-OSS, to give developers the flexibility and control to build the models the way that they know best and to run it anywhere. Enough talking, though. Let's actually see GPT-OSS in action in a couple of examples. So since GPT-OSS is an open model, there is a wide range of ways that you can run and host it.",
+    "start_time": 353.69,
+    "end_time": 376.8,
+    "audio_path": "materials/segments_18/segment_015_1763827323.mp3"
+  },
+  {
+    "index": 16,
+    "text": "On servers, you can use frameworks like VLLM and Transformers. Or for local inference, you can use projects like Llama CPP, LM Studio, or Olama. For this demo, we'll actually build a chat agent that will help me keep track of my finances without revealing my own private financial data and by leaving it entirely local. To power the agent, we'll run GPT-USS120B,",
+    "start_time": 376.8,
+    "end_time": 399.68,
+    "audio_path": "materials/segments_18/segment_016_1763827323.mp3"
+  },
+  {
+    "index": 17,
+    "text": "so that's the larger model, completely locally on my MacBook using OLAMA. But the same thing should work with other inference solutions. I've already downloaded the model on my laptop, since I didn't want you all to watch me download 70 gigabytes on conference Wi-Fi. But because of that, we can actually go and turn off our Wi-Fi here, since the model is entirely local.",
+    "start_time": 399.68,
+    "end_time": 421.31,
+    "audio_path": "materials/segments_18/segment_017_1763827323.mp3"
+  },
+  {
+    "index": 18,
+    "text": "All right, we've turned off the Wi-Fi, and with that, we're completely at the will of the model and the demo gods, so wish me luck. We can see if the model is running by using the Olama CLI here, and send a friendly greeting to the model, and we can see the model going through its reasoning process and responding accordingly.",
+    "start_time": 421.31,
+    "end_time": 445.31,
+    "audio_path": "materials/segments_18/segment_018_1763827323.mp3"
+  },
+  {
+    "index": 19,
+    "text": "All right, so now that we know that the model is running, we need to use a local API to integrate it into our app. Olama and most inference providers already provide a chat completions API. But in our case, we want to harness the full power of the model. So instead, we'll run our own responses API proxy.",
+    "start_time": 445.31,
+    "end_time": 465.69,
+    "audio_path": "materials/segments_18/segment_019_1763827323.mp3"
+  },
+  {
+    "index": 20,
+    "text": "Let's get out of here. All right, there we go. We're going to run our own responses API proxy that we shipped as part of GPT-OSS and that is available on GitHub. This proxy will expose built-in Python and browsing tools on top of sending the token generation to our inference provider,",
+    "start_time": 465.69,
+    "end_time": 491.68,
+    "audio_path": "materials/segments_18/segment_020_1763827323.mp3"
+  },
+  {
+    "index": 21,
+    "text": "in this case, Olama, running on this device. Now let's actually build the agent. For this, I'll be using the agent's SDK for TypeScript to build our finance agent that powers the chat interface that you can see on the right. We already have a very basic setup here where we have the chat interface hooked up to the agent on the left,",
+    "start_time": 491.68,
+    "end_time": 513.14,
+    "audio_path": "materials/segments_18/segment_021_1763827323.mp3"
+  },
+  {
+    "index": 22,
+    "text": "and then configure the agent to use our locally running responses API and for it to use the Python code interpreter as a tool. So right now, this agent is pretty generic. But we can see what it can do by asking a question like, what is the square root of some random number?",
+    "start_time": 513.14,
+    "end_time": 536.59,
+    "audio_path": "materials/segments_18/segment_022_1763827323.mp3"
+  },
+  {
+    "index": 23,
+    "text": "And we should see, as I mentioned earlier, that the model can perform tool calls as part of the chain of thought. So you can see here, it's starting to think through the steps it has to do. It tries to use the Python code interpreter, realized that it actually was trying to use some dependencies that it didn't have, and correct automatically. This is the same kind of behavior as what you would see from models like GPT-5,",
+    "start_time": 536.59,
+    "end_time": 560.99,
+    "audio_path": "materials/segments_18/segment_023_1763827323.mp3"
+  },
+  {
+    "index": 24,
+    "text": "O3, or O4 Mini, except that in this case, it is completely offline. That means we can build agents the same way that we're used to with these models, but for sensitive data that might have to remain on premise. For my finance agent, for example, I have a bunch of financial files scattered in my directory,",
+    "start_time": 560.99,
+    "end_time": 581.12,
+    "audio_path": "materials/segments_18/segment_024_1763827323.mp3"
+  },
+  {
+    "index": 25,
+    "text": "but I should probably clean up this situation because there's a couple of files that I don't want to have leave the system. But since we're running the model locally, I don't actually have to worry about this. With GPT-USS, we can equip our agent with the necessary tools to handle sensitive data while keeping the data entirely local. To connect to the file system, we're actually going to use an MCP server that exposes the necessary tools for the agent to browse and open files.",
+    "start_time": 581.12,
+    "end_time": 608.42,
+    "audio_path": "materials/segments_18/segment_025_1763827323.mp3"
+  },
+  {
+    "index": 26,
+    "text": "Let's add the MCP server and then connect to the MCP server, again, entirely locally. and provide it to our agent here. We can now check if it works by asking how many files are in the top level.",
+    "start_time": 608.42,
+    "end_time": 634.02,
+    "audio_path": "materials/segments_18/segment_026_1763827323.mp3"
+  },
+  {
+    "index": 27,
+    "text": "And you can see it's going through its reasoning steps again, using the different MCP tools to browse the system and get the information. And we got an answer. So now let's try a more complex question, like summarize my overall portfolio growth in 2024 in percentage.",
+    "start_time": 634.02,
+    "end_time": 660.5,
+    "audio_path": "materials/segments_18/segment_027_1763827323.mp3"
+  },
+  {
+    "index": 28,
+    "text": "And this is where you can really see the power of GPT-OSS coming into place, where we're using the tools as part of the chain of thought. It performs multiple requests to the file system, things, writes some Python code to interpret it, and then give us an answer directly to us without having to go back and forth with the user.",
+    "start_time": 660.5,
+    "end_time": 682.35,
+    "audio_path": "materials/segments_18/segment_028_1763827323.mp3"
+  },
+  {
+    "index": 29,
+    "text": "Now all of this has been fully running offline, leaving the data entirely on premise. But especially if you're using the smaller GPT-OSS 20b model, there might be moments where you need the model to know more or you're hitting other capability limits. For that, we're actually going to connect back to the internet. And I'm going to show you two more things. One, I want to provide the model with the ability to do web browsing.",
+    "start_time": 682.35,
+    "end_time": 704.96,
+    "audio_path": "materials/segments_18/segment_029_1763827323.mp3"
+  },
+  {
+    "index": 30,
+    "text": "And two, I want to give it access to GPT-5 for some additional tasks. For browsing, the model was trained on a generic browsing tool, meaning that you can build entirely your own browser tool on your proprietary search provider, run your browsing through your own proxies if you want to apply content filters, or even have a fully offline or on-premise search index.",
+    "start_time": 704.96,
+    "end_time": 726.66,
+    "audio_path": "materials/segments_18/segment_030_1763827323.mp3"
+  },
+  {
+    "index": 31,
+    "text": "In our case, though, we'll use an example search provider. We have two on GitHub. One is Exa, and the other one is u.com. And in our case, we're going to use the Exa API. This is already set up by us using the responses API proxy that we set up earlier. So I just have to enable it. But how enabling web search works will depend on your inference provider.",
+    "start_time": 726.66,
+    "end_time": 751.6,
+    "audio_path": "materials/segments_18/segment_031_1763827323.mp3"
+  },
+  {
+    "index": 32,
+    "text": "And the same goes for Python. So some of the inference providers might not support this yet. I also want the agent to be able to create me little interfaces, to be able to dive into the data that I'm working through. While the model is great at coding, it's not our best model for coding. For that, I actually want to give it GPT-5 as an agent that our agent can use as a tool.",
+    "start_time": 751.6,
+    "end_time": 774.35,
+    "audio_path": "materials/segments_18/segment_032_1763827323.mp3"
+  },
+  {
+    "index": 33,
+    "text": "So in this case, oops. I already have an HTML agent here that is using GPT-5 and is specialized on writing interface code in HTML and nothing else. I also have an input guardrail here that checks if anything looks like a social security number to avoid accidentally passing any sensitive data to my remote GPT-5 model.",
+    "start_time": 774.35,
+    "end_time": 799.36,
+    "audio_path": "materials/segments_18/segment_033_1763827323.mp3"
+  },
+  {
+    "index": 34,
+    "text": "You could do the same type of checks with other confidential data that you want to make sure it stays on premise. All right. I'm still at this here. So I'm going to pass it in, and I'm just going to give it a tool name of Generate Utilization.",
+    "start_time": 799.36,
+    "end_time": 820.66,
+    "audio_path": "materials/segments_18/segment_034_1763827323.mp3"
+  },
+  {
+    "index": 35,
+    "text": "And with that, we can ask a quick task like create a bar chart of my individual stock gains in 2024. Got to put a comma there. All right, now we should see the model going through the same steps again,",
+    "start_time": 820.66,
+    "end_time": 850.5,
+    "audio_path": "materials/segments_18/segment_035_1763827323.mp3"
+  },
+  {
+    "index": 36,
+    "text": "reading the necessary files, using Python to crunch the necessary numbers, and then using GPT-5 once it has the data. Let's see. So you can see here, it was calling the code interpreter to actually process that file. Seems like it messed up something.",
+    "start_time": 850.5,
+    "end_time": 871.84,
+    "audio_path": "materials/segments_18/segment_036_1763827323.mp3"
+  },
+  {
+    "index": 37,
+    "text": "And this is the benefit of that chain of thought reasoning, and it can actually go and recover. So every once in a while, you might run into these situations. There we go. Got the data. There we go. Now it's calling the generate visualization tool.",
+    "start_time": 871.84,
+    "end_time": 893.75,
+    "audio_path": "materials/segments_18/segment_037_1763827323.mp3"
+  },
+  {
+    "index": 38,
+    "text": "And you can actually see here that because my Social security number check is relatively rudimentary. Every once in a while, it might run into things where that regular expression gets triggered. So in this case, the model realized that and, again, self-corrected and performed another tool call to the model here.",
+    "start_time": 893.75,
+    "end_time": 915.54,
+    "audio_path": "materials/segments_18/segment_038_1763827323.mp3"
+  },
+  {
+    "index": 39,
+    "text": "And now, in a second, we should get back the result. See? Come on, internet. All right, while we're waiting for that, let's move on. There we go. All right. Thank you.",
+    "start_time": 915.54,
+    "end_time": 938.11,
+    "audio_path": "materials/segments_18/segment_039_1763827323.mp3"
+  },
+  {
+    "index": 40,
+    "text": "So as you saw, GPT-OSS seamlessly fits into the broader OpenAI ecosystem. We're able to write an agent the same way using the agent's SDK tools that you're already familiar with, run it entirely offline, and the model behaves the same way as our other reasoning models do. And we're able to leverage GPT-5 for tasks that it's less equipped to do.",
+    "start_time": 938.11,
+    "end_time": 959.54,
+    "audio_path": "materials/segments_18/segment_040_1763827323.mp3"
+  },
+  {
+    "index": 41,
+    "text": "One more thing, though, that we can do with GPT-OSS is to make it our own by fine-tuning it. Maybe you're not quite happy with the performance of GPT-OSS on a specific topic or task, or maybe you want the model to be a subject matter expert on a specific field or some internal data. Traditionally, that would mean to use a technique called supervised fine-tuning,",
+    "start_time": 959.54,
+    "end_time": 979.78,
+    "audio_path": "materials/segments_18/segment_041_1763827323.mp3"
+  },
+  {
+    "index": 42,
+    "text": "where at a high level, we give the model a bunch of input and output examples and train the model on those to get better at similar inputs. However, with GPT-OSS's reasoning capabilities, a more interesting way of fine-tuning and personalizing GPT-OSS is doing additional reinforcement fine-tuning, where we give the model inputs and a reward function that tells the model how good the output was.",
+    "start_time": 979.78,
+    "end_time": 1002.9,
+    "audio_path": "materials/segments_18/segment_042_1763827323.mp3"
+  },
+  {
+    "index": 43,
+    "text": "To give you an example of fine-tuning, we're going to briefly see it in action. But since watching a model fine-tune for hours might not be the most interesting thing you can do today, I already fine-tuned a model ahead of time. So before I explain to you what we did, how many of you know this game of 2048? All right, cool.",
+    "start_time": 1002.9,
+    "end_time": 1023.78,
+    "audio_path": "materials/segments_18/segment_043_1763827323.mp3"
+  },
+  {
+    "index": 44,
+    "text": "So in these games, for those of you who don't know, as a player, you try to combine different tiles with the same number that are next to each other by swiping up, down, left, right, and to merge these tiles and eventually reach 2048. We wanted GPTUSS20B to play the same game by having it write a Python function that encodes a strategy to actually play the game.",
+    "start_time": 1023.78,
+    "end_time": 1047.23,
+    "audio_path": "materials/segments_18/segment_044_1763827323.mp3"
+  },
+  {
+    "index": 45,
+    "text": "And as you will probably see here, the base model is decently OK at playing it, but occasionally writes wrong or very basic code where it doesn't get far in the game, especially on low reasoning. So if we're testing this out here, it seems like this did OK, but it definitely didn't get very far on the board. So instead, we fine-tuned a dedicated model by giving it a reward function that takes the board strategy and then plays boards on it.",
+    "start_time": 1047.23,
+    "end_time": 1080.19,
+    "audio_path": "materials/segments_18/segment_045_1763827323.mp3"
+  },
+  {
+    "index": 46,
+    "text": "And then we used a technique called GRPO, which is a reinforcement fine-tuning technique, and a tool called Unslough. to actually fine-tune the model. This is a non-trivial amount of code if I scroll through this entire notebook. So if you do want to check this out, it's available on our GPT OS's GitHub page,",
+    "start_time": 1080.19,
+    "end_time": 1102.16,
+    "audio_path": "materials/segments_18/segment_046_1763827323.mp3"
+  },
+  {
+    "index": 47,
+    "text": "and you can check it out there and retry it yourself. So let's actually see this in action. By having GPT-OSS and our fine-tuned version, each generate five different strategies here. So we can see the model is starting to kick off all of these different Python strategies. It's a bit harder to read it at the second while it's still generating.",
+    "start_time": 1102.16,
+    "end_time": 1124.54,
+    "audio_path": "materials/segments_18/segment_047_1763827323.mp3"
+  },
+  {
+    "index": 48,
+    "text": "But every once in a while, both models will return some more rudimentary techniques, rudimentary strategies. But it's also pretty hard for you to distinguish between them and which one is better or not. So in order for us to figure out if the model actually did a better job, we're going to have the two models with these five strategies play 100 boards against each other to see which one gets better.",
+    "start_time": 1124.54,
+    "end_time": 1148.75,
+    "audio_path": "materials/segments_18/segment_048_1763827323.mp3"
+  },
+  {
+    "index": 49,
+    "text": "So we're almost there. Some of them are still generating. Let's see. How many? One. All right. Looks like we're done here. So let's run this. Demogods, come on. Yes! So you can see model B, which is actually our fine-tuned version of the model,",
+    "start_time": 1148.75,
+    "end_time": 1169.15,
+    "audio_path": "materials/segments_18/segment_049_1763827323.mp3"
+  },
+  {
+    "index": 50,
+    "text": "won quite significantly in the different games playing against each other and also got overall a total higher score. All right, I do have one confession to make, though. I mentioned earlier that we were running GPU-SS entirely locally. And while that was the case for the first demo, these two models were actually not running on my device.",
+    "start_time": 1169.15,
+    "end_time": 1191.63,
+    "audio_path": "materials/segments_18/segment_050_1763827323.mp3"
+  },
+  {
+    "index": 51,
+    "text": "They are still running entirely locally, though, and not on some GPU in the cloud. Instead, I actually got to run them on a very special piece of hardware. So years ago, Jensen delivered the very first DGX-1 to OpenAI. And you can see it here on the screen. It was a milestone in compute. And while it would be fun to run these two models on a DGX-1, it doesn't quite fit on the podium.",
+    "start_time": 1191.63,
+    "end_time": 1216.3,
+    "audio_path": "materials/segments_18/segment_051_1763827323.mp3"
+  },
+  {
+    "index": 52,
+    "text": "And you all would have probably figured this out by now. So instead, though, I have a great alternative. This is the DGX Spark from NVIDIA. And this little beast contains the same amount of compute as the DGX one, and in fact, is currently running both of these models, but also fine-tuned the model while standing on my desk.",
+    "start_time": 1216.3,
+    "end_time": 1239.3,
+    "audio_path": "materials/segments_18/segment_052_1763827323.mp3"
+  },
+  {
+    "index": 53,
+    "text": "You're all some of the very first people, actually, to see this live outside of a lab. And NVIDIA was so kind to give it to us for this demo. In fact, it's not available at all yet as a pre-production system that NVIDIA provided to us to help get the system ready for developers like you all. And because it's still pre-production hardware and software,",
+    "start_time": 1239.3,
+    "end_time": 1260.24,
+    "audio_path": "materials/segments_18/segment_053_1763827323.mp3"
+  },
+  {
+    "index": 54,
+    "text": "it might not be fully representative of its final capabilities and performance. But it's been a lot of fun to work with. So if you want to check out the code for the fine tuning to learn more and try it out yourself, even if you don't have a DGX Spark yet, you can find it on GitHub. All right. To summarize what we've seen so far,",
+    "start_time": 1260.24,
+    "end_time": 1282.01,
+    "audio_path": "materials/segments_18/segment_054_1763827323.mp3"
+  },
+  {
+    "index": 55,
+    "text": "GPT-OSS is a great option if you need to run the model locally or on-premise, for example, for safety, privacy, or low-latency use cases. And GPT-OSS seamlessly integrates with the OpenAI tools that you're already using, including the Agents SDK and the Codec CLI. So whether you're building an agent that has to run locally or you're trying to code offline,",
+    "start_time": 1282.01,
+    "end_time": 1305.59,
+    "audio_path": "materials/segments_18/segment_055_1763827323.mp3"
+  },
+  {
+    "index": 56,
+    "text": "GPT-OSS can be useful. And GPT-USS and GPT-5 can work hand-in-hand, allowing you for use cases where you need to run a blend of models to get both state-of-the-art performance and some of the benefits of open models. Lastly, GPT-USS can be fine-tuned for your own use cases, giving you the ability to have your own expert models on your use cases while leveraging the same intelligence and capabilities of OpenAI's reasoning models,",
+    "start_time": 1305.59,
+    "end_time": 1335.06,
+    "audio_path": "materials/segments_18/segment_056_1763827323.mp3"
+  },
+  {
+    "index": 57,
+    "text": "all while running fully on your own hardware of choice. If you do want to learn more, you can check out all of the resources on openai.com slash openmodels. And with that, thank you very much.",
+    "start_time": 1335.06,
+    "end_time": 1344.43,
+    "audio_path": "materials/segments_18/segment_057_1763827323.mp3"
+  }
+]

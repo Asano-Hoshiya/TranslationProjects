@@ -1,0 +1,21 @@
+# Core dependencies for the Flask app
+Flask>=2.0
+requests>=2.28
+
+# Optional: used if you want to run local Whisper transcription
+# Installs the OpenAI Whisper package (which depends on torch).
+openai-whisper
+
+# NOTE: openai-whisper requires PyTorch (torch). Install a suitable torch build
+# for your platform (CPU or CUDA). Example (CPU-only):
+# pip install torch --index-url https://download.pytorch.org/whl/cpu
+
+# Optional utilities you may find useful
+python-dotenv>=0.21.0
+
+# Development / testing
+# pytest>=7.0
+
+# External system dependency (not a Python package):
+# - FFmpeg must be installed and available on PATH for audio/video processing.
+#   On Windows you can download from: https://ffmpeg.org/download.html

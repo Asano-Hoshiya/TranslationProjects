@@ -1,0 +1,514 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="page-header">
+    <h1>素材管理</h1>
+    <button class="btn" onclick="showUploadForm()">上传素材</button>
+</div>
+
+<!-- 上传素材弹窗 -->
+<div id="upload-form" class="modal" style="display:none;">
+    <div class="modal-content">
+        <h2>上传素材</h2>
+        <form id="material-form">
+            <label>素材标题</label>
+            <input type="text" id="title-input" name="title" placeholder="素材标题" required>
+
+            <label>素材类型</label>
+            <select id="type-select" name="type">
+                <option value="text">纯文本</option>
+                <option value="audio">音频+文本</option>
+                <option value="video">视频+文本</option>
+            </select>
+
+            <label>文本内容（可选，或通过 LRC 导入）</label>
+            <textarea id="text-input" name="text" placeholder="文本内容（可选）" rows="10"></textarea>
+
+            <label for="lrc-file">导入 LRC 字幕文件（可选）</label>
+            <input type="file" id="lrc-file" name="lrc" accept=".lrc" onchange="handleLrcSelect(this)">
+            <p class="hint">LRC 文件会自动填充文本内容并包含时间戳信息</p>
+
+            <label for="media-file">上传音频/视频文件</label>
+            <input type="file" id="media-file" name="audio" accept="audio/*,video/*" onchange="handleFileSelect(this)">
+            <p class="hint">支持格式：MP3, WAV, MP4, AVI, MOV, MKV 等</p>
+
+            <label>标签（逗号分隔）</label>
+            <input type="text" name="tags" placeholder="例如：商务,英语,中级">
+
+            <label style="margin-top:1rem;display:flex;align-items:center;">
+                <input type="checkbox" id="auto-transcribe-upload" style="width:auto;margin-right:0.5rem;">
+                上传后自动转写为文字
+            </label>
+
+            <div class="btn-group">
+                <button type="submit" class="btn">上传</button>
+                <button type="button" class="btn" onclick="hideUploadForm()">取消</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- 智能切分弹窗 -->
+<div id="split-modal" class="modal" style="display:none;">
+    <div class="modal-content">
+        <h2>智能意群切分</h2>
+        <form id="split-form">
+            <input type="hidden" id="split-material-id">
+
+            <label>目标片段时长（秒）</label>
+            <input type="number" id="target-duration" value="30" min="10" max="120" step="5">
+            <p class="hint">系统会在此时长附近切分，但保证句子完整</p>
+
+            <label style="margin-top:1rem;display:flex;align-items:center;">
+                <input type="checkbox" id="use-ai-split" style="width:auto;margin-right:0.5rem;">
+                使用 AI 优化分组（需要 API Key）
+            </label>
+            <p class="hint">AI 会根据语义关系优化分组</p>
+
+            <div class="btn-group">
+                <button type="submit" class="btn">开始切分</button>
+                <button type="button" class="btn" onclick="hideSplitModal()">取消</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div id="materials-list"></div>
+
+<script>
+function showUploadForm() {
+    document.getElementById('upload-form').style.display = 'flex';
+}
+
+function hideUploadForm() {
+    document.getElementById('upload-form').style.display = 'none';
+    document.getElementById('material-form').reset();
+}
+
+function showSplitModal(materialId) {
+    document.getElementById('split-material-id').value = materialId;
+    document.getElementById('split-modal').style.display = 'flex';
+}
+
+function hideSplitModal() {
+    document.getElementById('split-modal').style.display = 'none';
+}
+
+async function handleLrcSelect(input) {
+    const file = input.files[0];
+    if (!file) return;
+
+    try {
+        const text = await file.text();
+        const textInput = document.getElementById('text-input');
+        const titleInput = document.getElementById('title-input');
+
+        textInput.value = text;
+
+        if (!titleInput.value.trim()) {
+            const nameWithoutExt = file.name.substring(0, file.name.lastIndexOf('.')) || file.name;
+            titleInput.value = nameWithoutExt;
+        }
+    } catch (error) {
+        alert('LRC 文件读取失败: ' + error.message);
+    }
+}
+
+function handleFileSelect(input) {
+    const file = input.files[0];
+    if (!file) return;
+
+    const filename = file.name;
+    const titleInput = document.getElementById('title-input');
+    const typeSelect = document.getElementById('type-select');
+
+    const nameWithoutExt = filename.substring(0, filename.lastIndexOf('.')) || filename;
+
+    if (!titleInput.value.trim()) {
+        titleInput.value = nameWithoutExt;
+    }
+
+    const videoExtensions = ['.mp4', '.avi', '.mov', '.mkv', '.flv', '.wmv', '.webm', '.m4v'];
+    const audioExtensions = ['.mp3', '.wav', '.m4a', '.aac', '.ogg', '.flac', '.wma'];
+    const ext = filename.substring(filename.lastIndexOf('.')).toLowerCase();
+
+    if (videoExtensions.includes(ext)) {
+        typeSelect.value = 'video';
+    } else if (audioExtensions.includes(ext)) {
+        typeSelect.value = 'audio';
+    }
+}
+
+// 辅助函数：延迟
+function sleep(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+// 上传素材
+document.getElementById('material-form').onsubmit = async (e) => {
+    e.preventDefault();
+    const formData = new FormData(e.target);
+
+    const autoTranscribe = document.getElementById('auto-transcribe-upload').checked;
+    formData.append('auto_transcribe', autoTranscribe);
+
+    hideUploadForm();
+
+    const steps = autoTranscribe ?
+        ['上传文件', '保存素材', '加载模型', '转写音频', '生成片段', '完成'] :
+        ['上传文件', '保存素材', '完成'];
+
+    progressManager.show('上传素材', steps);
+
+    try {
+        progressManager.updateProgress(0, '正在上传文件...', '上传音频/视频和字幕文件');
+
+        const response = await fetch('/api/materials', {
+            method: 'POST',
+            body: formData
+        });
+
+        const result = await response.json();
+
+        if (response.ok) {
+            progressManager.updateProgress(1, '保存素材信息...', '创建素材记录');
+            await sleep(300);
+
+            if (result.lrc_imported) {
+                progressManager.complete('LRC 导入成功！');
+                await sleep(1600);
+
+                alert(`上传成功！\n\nLRC 导入成功，已按句子切分为 ${result.segments_count} 个片段\n\n您可以点击"智能切分"按意群重新分组`);
+            } else if (result.transcribed) {
+                progressManager.updateProgress(2, '加载转写模型...', '准备转写');
+                await sleep(300);
+
+                progressManager.updateProgress(3, '转写音频中...', '这可能需要较长时间');
+                await sleep(500);
+
+                progressManager.updateProgress(4, '生成时间戳片段...', '解析转写结果');
+                await sleep(300);
+
+                progressManager.complete('上传并转写完成！');
+                await sleep(1600);
+
+                const previewText = result.text.substring(0, 200);
+                alert(`上传成功！\n\n已自动转写为文字:\n${previewText}${result.text.length > 200 ? '...' : ''}`);
+            } else {
+                progressManager.complete('上传成功！');
+                await sleep(1600);
+                alert('上传成功！');
+            }
+
+            loadMaterials();
+            document.getElementById('material-form').reset();
+        } else {
+            progressManager.error(result.error || '上传失败');
+            await sleep(2000);
+            alert('上传失败: ' + (result.error || '未知错误'));
+        }
+    } catch (error) {
+        progressManager.error(error.message);
+        await sleep(2000);
+        alert('上传失败: ' + error.message);
+    }
+};
+
+// 智能切分
+document.getElementById('split-form').onsubmit = async (e) => {
+    e.preventDefault();
+
+    const materialId = document.getElementById('split-material-id').value;
+    const duration = document.getElementById('target-duration').value;
+    const useAi = document.getElementById('use-ai-split').checked;
+
+    hideSplitModal();
+
+    const steps = [
+        '准备切分',
+        '分析文本结构',
+        '按时长合并片段',
+        '切分音频文件',
+        '保存切分结果',
+        '完成'
+    ];
+
+    progressManager.show('智能意群切分', steps);
+
+    try {
+        progressManager.updateProgress(0, '正在准备切分...', '检查素材文本和音频文件');
+        await sleep(300);
+
+        progressManager.updateProgress(1, '分析文本结构...', useAi ? '使用 AI 智能分析' : '使用时长规则分析');
+
+        const response = await fetch(`/api/materials/${materialId}/smart-split`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                duration: parseFloat(duration),
+                use_ai: useAi
+            })
+        });
+
+        const result = await response.json();
+
+        if (response.ok) {
+            progressManager.updateProgress(2, '按时长合并片段...', `已生成 ${result.count} 个片段，平均每段约 ${duration} 秒`);
+            await sleep(500);
+
+            if (result.audio_segments > 0) {
+                progressManager.updateProgress(3, '正在切分音频文件...', `切分 ${result.audio_segments} 个音频片段，请稍候...`);
+                await sleep(1000);
+            } else {
+                progressManager.updateProgress(3, '跳过音频切分', '无时间戳信息或无音频文件');
+                await sleep(300);
+            }
+
+            progressManager.updateProgress(4, '保存切分结果...', '更新素材数据');
+            await sleep(300);
+
+            progressManager.complete('切分完成！');
+
+            await sleep(1600);
+
+            const methodText = result.method === 'ai' ? 'AI智能' : '时长';
+            let message = `${methodText}切分完成！\n\n`;
+            message += `文本片段: ${result.count} 个\n`;
+            message += `音频片段: ${result.audio_segments || 0} 个\n`;
+            message += `平均每段约 ${duration} 秒`;
+
+            if (result.audio_segments > 0) {
+                message += '\n\n已生成独立音频文件，可以直接播放每个片段';
+            }
+
+            alert(message);
+            loadMaterials();
+        } else {
+            progressManager.error(result.error || '切分失败');
+            await sleep(2000);
+            alert('切分失败: ' + (result.error || '未知错误'));
+        }
+    } catch (error) {
+        progressManager.error(error.message);
+        await sleep(2000);
+        alert('切分失败: ' + error.message);
+    }
+};
+
+async function loadMaterials() {
+    const response = await fetch('/api/materials');
+    const materials = await response.json();
+
+    const list = document.getElementById('materials-list');
+    list.innerHTML = '';
+
+    if (materials.length === 0) {
+        list.innerHTML = '<div class="card"><p style="color:#666;">暂无素材，点击上方按钮上传</p></div>';
+        return;
+    }
+
+    materials.forEach(m => {
+        const card = document.createElement('div');
+        card.className = 'card';
+
+        const textPreview = m.text_content ?
+            (m.text_content.substring(0, 100).replace(/\[\d{2}:\d{2}\.\d{2}\]/g, '') + (m.text_content.length > 100 ? '...' : '')) :
+            '无文本内容';
+
+        const hasSplit = m.split_data_path ? '已切分' : '未切分';
+
+        card.innerHTML = `
+            <h3>${m.title}</h3>
+            <p><strong>类型:</strong> ${m.type} | <strong>状态:</strong> ${hasSplit} | <strong>创建时间:</strong> ${m.created_at}</p>
+            ${m.tags ? `<p><strong>标签:</strong> ${m.tags}</p>` : ''}
+            <p style="color:#666;font-size:0.9em;">${textPreview}</p>
+            ${m.audio_path ? `<p style="color:#666;font-size:0.85em;">音频文件: ${m.audio_path.split('/').pop()}</p>` : ''}
+            <div class="btn-group">
+                <button class="btn-sm" onclick="showSplitModal(${m.id})">智能切分</button>
+                ${m.text_content ? `<button class="btn-sm" onclick="analyzeMaterial(${m.id})">AI分析</button>` : ''}
+                ${m.audio_path && !m.text_content ? `<button class="btn-sm" onclick="transcribeMaterial(${m.id})">转写文字</button>` : ''}
+                <a href="/practice/${m.id}" class="btn-sm">开始练习</a>
+                <button class="btn-sm btn-danger" onclick="deleteMaterial(${m.id}, '${m.title}')">删除</button>
+            </div>
+        `;
+        list.appendChild(card);
+    });
+}
+
+async function deleteMaterial(id, title) {
+    if (!confirm(`确定要删除素材"${title}"吗？\n\n此操作将删除素材及其相关的所有练习记录，且无法恢复！`)) {
+        return;
+    }
+
+    try {
+        const response = await fetch(`/api/materials/${id}`, {
+            method: 'DELETE'
+        });
+
+        if (response.ok) {
+            alert('删除成功！');
+            loadMaterials();
+        } else {
+            const result = await response.json();
+            alert('删除失败: ' + (result.error || '未知错误'));
+        }
+    } catch (error) {
+        alert('删除失败: ' + error.message);
+    }
+}
+
+async function analyzeMaterial(id) {
+    const material = await fetch(`/api/materials/${id}`).then(r => r.json());
+
+    if (!material.text_content || material.text_content.trim() === '') {
+        alert('该素材没有文本内容，无法分析。');
+        return;
+    }
+
+    // 费用提醒
+    const confirmed = confirm(
+        'AI 分析功能将调用 ChatGPT API\n\n' +
+        '预计费用：约 $0.0001 - $0.001（根据文本长度）\n' +
+        '使用模型：gpt-4o-mini（最便宜）\n\n' +
+        '是否继续？'
+    );
+
+    if (!confirmed) {
+        return;
+    }
+
+    // 选择分析类型
+    const tasks = [
+        { value: 'summary', label: '生成摘要' },
+        { value: 'terms', label: '提取术语' },
+        { value: 'difficulty', label: '难度分析' }
+    ];
+
+    const taskChoice = prompt(
+        '选择分析类型（输入数字）：\n\n' +
+        '1 - 生成摘要\n' +
+        '2 - 提取术语\n' +
+        '3 - 难度分析',
+        '1'
+    );
+
+    let task = 'summary';
+    if (taskChoice === '2') task = 'terms';
+    else if (taskChoice === '3') task = 'difficulty';
+
+    const cleanText = material.text_content.replace(/\[\d{2}:\d{2}\.\d{2}\]/g, '').trim();
+
+    try {
+        const response = await fetch('/api/chatgpt/analyze', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ text: cleanText, task: task, material_id: id })
+        });
+
+        const result = await response.json();
+
+        if (!response.ok || result.error) {
+            showTransientMessage('分析失败: ' + (result.error || result.detail || '未知错误'), true);
+        } else {
+            showTransientMessage('AI 分析已保存，您可以在练习页面查看结果');
+            // 刷新列表，保留用户位置
+            await loadMaterials();
+        }
+    } catch (error) {
+        showTransientMessage('分析失败: ' + error.message, true);
+    }
+}
+
+function showTransientMessage(msg, isError) {
+    const banner = document.createElement('div');
+    banner.style.position = 'fixed';
+    banner.style.left = '50%';
+    banner.style.top = '20px';
+    banner.style.transform = 'translateX(-50%)';
+    banner.style.padding = '0.8rem 1.2rem';
+    banner.style.borderRadius = '6px';
+    banner.style.zIndex = 2000;
+    banner.style.background = isError ? '#ffdddd' : '#ddffdd';
+    banner.style.border = isError ? '1px solid #ff9999' : '1px solid #99cc99';
+    banner.textContent = msg;
+    document.body.appendChild(banner);
+    setTimeout(() => banner.remove(), 4000);
+}
+
+async function transcribeMaterial(id) {
+    if (!confirm('确定要转写此音频吗？\n\n转写将自动生成时间戳，方便后续切分。')) {
+        return;
+    }
+
+    const steps = [
+        '准备转写',
+        '加载转写模型',
+        '开始音频转写',
+        '解析转写结果',
+        '生成时间戳片段',
+        '保存到数据库',
+        '完成'
+    ];
+
+    progressManager.show('音频转写中', steps);
+
+    try {
+        progressManager.updateProgress(0, '正在准备转写...', '检查音频文件和配置');
+        await sleep(300);
+
+        progressManager.updateProgress(1, '加载转写模型...', '根据配置加载 Whisper 模型');
+
+        const response = await fetch(`/api/materials/${id}/transcribe`, {
+            method: 'POST'
+        });
+
+        progressManager.updateProgress(2, '正在转写音频...', '这可能需要一些时间，请耐心等待');
+
+        const result = await response.json();
+
+        if (response.ok) {
+            progressManager.updateProgress(3, '解析转写结果...', `已识别 ${result.text.length} 个字符`);
+            await sleep(300);
+
+            if (result.has_timestamps) {
+                const segmentCount = (result.text.match(/\[\d{2}:\d{2}\.\d{2}\]/g) || []).length;
+                progressManager.updateProgress(4, '生成时间戳片段...', `已生成 ${segmentCount} 个带时间戳的片段`);
+                await sleep(300);
+            } else {
+                progressManager.updateProgress(4, '保存纯文本...', '未生成时间戳');
+                await sleep(300);
+            }
+
+            progressManager.updateProgress(5, '保存到数据库...', '更新素材信息');
+            await sleep(300);
+
+            progressManager.complete('转写完成！');
+
+            await sleep(1600);
+
+            const previewText = result.text.substring(0, 200);
+            let message = '转写成功！\n\n';
+
+            if (result.has_timestamps) {
+                message += '已自动生成时间戳，可直接进行智能切分。\n\n';
+            }
+
+            message += '预览:\n' + previewText + (result.text.length > 200 ? '...' : '');
+
+            alert(message);
+            loadMaterials();
+        } else {
+            progressManager.error(result.error || '转写失败');
+            await sleep(2000);
+            alert('转写失败: ' + (result.error || '未知错误'));
+        }
+    } catch (error) {
+        progressManager.error(error.message);
+        await sleep(2000);
+        alert('转写失败: ' + error.message);
+    }
+}
+
+loadMaterials();
+</script>
+{% endblock %}

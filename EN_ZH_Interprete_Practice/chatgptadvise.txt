@@ -1,0 +1,30 @@
+下面用中文回答你的两个问题，并给出可复制的操作建议与示例。
+
+如果只上传你列出的那些文件，其他文件是否需要改动？
+不必修改代码本身：把核心源码（app.py、chatgpt_helper.py、database.py、utils.py）、templates、static、依赖清单（requirements.txt/pyproject.toml）、辅助模块（config_manager.py、api_usage.py 等）、data/splits/*.json（仅样例）和 README.md/.github 上传到 GitHub 是合理的，通常不需要对功能代码做改动。
+但有三件“准备工作”强烈建议做（不是改功能，只是安全与可用性）：
+添加 .gitignore，把本地数据、数据库、音频/视频、分析结果和配置文件排除（例如 config.json、database.db、materials、recordings、analyses）。这样不会把敏感键或大文件推上仓库。
+把真实的 config.json 替换为 data/config.json.example（包含默认项但不包含真实 API Key）：在 README 中说明如何本地创建 config.json 或使用环境变量存放 API Key。
+在 README.md 里写清楚运行步骤、如何设置 API Key（优先用环境变量）、如何启用/禁用 AI（例如 ai_enabled 配置或环境变量），以及如何导入示例数据。
+如果你已经有真实的 config.json 或 database.db 被提交到已有的 git 历史中，上传前应把这些文件从最新提交中移除并加入 .gitignore（若已经推到远端且需要移除历史，请另行用 git filter-repo 或 BFG 清除历史 — 我可以帮你写具体命令）。
+我没有 LICENSE，如何创建？（推荐与步骤）
+常用选项（简短说明）：
+MIT：最宽松的许可，允许商业使用、修改与再发布，仅要求保留版权声明与许可文本。
+Apache 2.0：允许专利授权，适合更明确的专利条款需求。
+GPLv3：强制开源派生作品（传染性强），如果你希望所有派生项目也必须开源才用此。
+最简单常见推荐：MIT（如果你不确定，选择 MIT 通常没有法律阻碍且方便别人使用）。
+MIT LICENSE 示例（复制到项目根目录 LICENSE）：
+操作（PowerShell，可直接复制运行）：
+在项目根生成 LICENSE（替换 YOUR NAME）：
+添加并提交（如果仓库已初始化）：
+如果你偏好通过 GitHub 网页创建：在 GitHub 仓库页面点击 “Add file → Create new file”，输入文件名 LICENSE，在右上角有 “Choose a license template” 按钮，选择 MIT 或其他，然后保存即可（GitHub 会自动填好版权年份）。
+补充建议（为了安全与可复现性）：
+
+在 README.md 中说明“如何配置 API Key”：例如优先从环境变量 OPENAI_API_KEY 读取，或复制 data/config.json.example 为 config.json 并填写 api_key。这样用户不会误提交密钥。
+把 data/config.json.example、.gitignore 与 LICENSE 一并提交，这样 repo 一目了然、可直接共享给他人。
+如果你愿意，我可以现在为你：
+
+A) 在仓库根创建 .gitignore 与 data/config.json.example（并提交），
+B) 生成 LICENSE（MIT）并提交，
+C) 生成一个简短的 README.md 模板说明如何设置 API Key 与运行。
+请选择要我执行的操作（A / B / C / 任意组合），我会直接替你在代码库中创建并提交这些文件。

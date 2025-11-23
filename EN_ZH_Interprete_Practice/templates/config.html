@@ -1,0 +1,309 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="page-header">
+    <h1>系统配置</h1>
+</div>
+
+<div class="card">
+    <h2>音频转文字配置</h2>
+    <form id="transcribe-config-form">
+        <label>转写方法</label>
+        <select id="transcribe-method" onchange="toggleTranscribeOptions()">
+            <option value="local">本地 Whisper（推荐，免费无需 API）</option>
+            <option value="api">OpenAI API（需要 API Key）</option>
+        </select>
+
+        <div id="whisper-local-section" style="margin-top:1rem;">
+            <label>Whisper 模型大小</label>
+            <select id="whisper-model">
+                <option value="tiny">Tiny（最快，精度较低，~1GB 内存）</option>
+                <option value="base">Base（推荐，平衡速度和精度，~1GB 内存）</option>
+                <option value="small">Small（较慢，精度较高，~2GB 内存）</option>
+                <option value="medium">Medium（慢，精度高，~5GB 内存）</option>
+                <option value="large">Large（最慢，精度最高，~10GB 内存）</option>
+            </select>
+            <p class="hint">首次使用会自动下载模型，请耐心等待</p>
+
+            <label style="margin-top:1rem;">转写语言</label>
+            <select id="whisper-language">
+                <option value="auto">自动检测（推荐）</option>
+                <option value="zh">中文</option>
+                <option value="en">英文</option>
+                <option value="ja">日语</option>
+                <option value="ko">韩语</option>
+                <option value="fr">法语</option>
+                <option value="de">德语</option>
+                <option value="es">西班牙语</option>
+                <option value="ru">俄语</option>
+                <option value="ar">阿拉伯语</option>
+                <option value="pt">葡萄牙语</option>
+                <option value="it">意大利语</option>
+                <option value="th">泰语</option>
+                <option value="vi">越南语</option>
+                <option value="id">印尼语</option>
+                <option value="tr">土耳其语</option>
+                <option value="pl">波兰语</option>
+                <option value="nl">荷兰语</option>
+                <option value="sv">瑞典语</option>
+                <option value="hi">印地语</option>
+            </select>
+            <p class="hint">选择音频的主要语言，或使用自动检测。如果转写结果不准确，请手动指定语言。</p>
+        </div>
+
+        <button type="submit" class="btn" style="margin-top:10px;">保存转写配置</button>
+    </form>
+</div>
+
+<div class="card">
+    <h2>ChatGPT API 配置</h2>
+    <p class="hint">仅在使用 API 转写或 AI 分析功能时需要</p>
+
+    <div style="background:#f5f5f5;padding:1rem;margin:1rem 0;border:1px solid #ddd;">
+        <h3 style="margin-top:0;">费用说明</h3>
+        <table style="width:100%;font-size:0.9em;">
+            <tr>
+                <th style="text-align:left;padding:0.5rem;">功能</th>
+                <th style="text-align:left;padding:0.5rem;">模型</th>
+                <th style="text-align:right;padding:0.5rem;">预计费用</th>
+            </tr>
+            <tr style="border-top:1px solid #ddd;">
+                <td style="padding:0.5rem;">文本分析</td>
+                <td style="padding:0.5rem;">gpt-5-nano</td>
+                <td style="text-align:right;padding:0.5rem;">约 $0.05 / 1M 输入 token，$0.40 / 1M 输出 token</td>
+            </tr>
+            <tr style="border-top:1px solid #ddd;">
+                <td style="padding:0.5rem;">音频转写</td>
+                <td style="padding:0.5rem;">whisper-1</td>
+                <td style="text-align:right;padding:0.5rem;">$0.006 / 分钟</td>
+            </tr>
+        </table>
+        <p class="hint" style="margin-top:1rem;margin-bottom:0;">
+            <strong>推荐：</strong>优先使用本地 Whisper 转写（完全免费）。<br>
+            AI 分析功能会在每次调用前弹出确认提示。
+        </p>
+    </div>
+
+    <form id="api-config-form">
+        <label>API Key</label>
+        <input type="password" id="api-key" placeholder="输入 OpenAI API Key（可选）">
+        <p id="current-key" style="margin-top:10px;color:#666;"></p>
+        <button type="submit" class="btn" style="margin-top:10px;">保存 API Key</button>
+    </form>
+</div>
+
+<div class="card">
+    <h2>视频处理配置</h2>
+    <form id="video-config-form">
+        <label>音频提取方法</label>
+        <select id="extract-method">
+            <option value="moviepy">MoviePy（推荐，纯 Python）</option>
+            <option value="ffmpeg">FFmpeg Python（需预装 ffmpeg + Python 包）</option>
+            <option value="ffmpeg-command">FFmpeg 命令（仅需系统 ffmpeg）</option>
+        </select>
+
+        <label style="margin-top:1rem;display:flex;align-items:center;">
+            <input type="checkbox" id="keep-video" style="width:auto;margin-right:0.5rem;">
+            保留原视频文件（否则提取音频后自动删除）
+        </label>
+
+        <label style="margin-top:1rem;display:flex;align-items:center;">
+            <input type="checkbox" id="auto-transcribe" style="width:auto;margin-right:0.5rem;">
+            上传时自动转写音频为文字
+        </label>
+
+        <button type="submit" class="btn" style="margin-top:10px;">保存视频配置</button>
+    </form>
+</div>
+
+<div class="card">
+    <h2>支持的语言列表</h2>
+    <p class="hint">Whisper 支持 99 种语言，以下是常用语言</p>
+    <table style="width:100%;margin-top:1rem;border-collapse:collapse;">
+        <tr style="border-bottom:1px solid #ddd;">
+            <th style="text-align:left;padding:0.5rem;">语言</th>
+            <th style="text-align:left;padding:0.5rem;">代码</th>
+            <th style="text-align:left;padding:0.5rem;">适用场景</th>
+        </tr>
+        <tr style="border-bottom:1px solid #eee;">
+            <td style="padding:0.5rem;">自动检测</td>
+            <td style="padding:0.5rem;font-family:monospace;">auto</td>
+            <td style="padding:0.5rem;">推荐，自动识别语言</td>
+        </tr>
+        <tr style="border-bottom:1px solid #eee;">
+            <td style="padding:0.5rem;">中文</td>
+            <td style="padding:0.5rem;font-family:monospace;">zh</td>
+            <td style="padding:0.5rem;">普通话、粤语等</td>
+        </tr>
+        <tr style="border-bottom:1px solid #eee;">
+            <td style="padding:0.5rem;">英文</td>
+            <td style="padding:0.5rem;font-family:monospace;">en</td>
+            <td style="padding:0.5rem;">美式、英式英语</td>
+        </tr>
+        <tr style="border-bottom:1px solid #eee;">
+            <td style="padding:0.5rem;">日语</td>
+            <td style="padding:0.5rem;font-family:monospace;">ja</td>
+            <td style="padding:0.5rem;">日本語</td>
+        </tr>
+        <tr style="border-bottom:1px solid #eee;">
+            <td style="padding:0.5rem;">韩语</td>
+            <td style="padding:0.5rem;font-family:monospace;">ko</td>
+            <td style="padding:0.5rem;">한국어</td>
+        </tr>
+        <tr style="border-bottom:1px solid #eee;">
+            <td style="padding:0.5rem;">法语</td>
+            <td style="padding:0.5rem;font-family:monospace;">fr</td>
+            <td style="padding:0.5rem;">Français</td>
+        </tr>
+        <tr style="border-bottom:1px solid #eee;">
+            <td style="padding:0.5rem;">德语</td>
+            <td style="padding:0.5rem;font-family:monospace;">de</td>
+            <td style="padding:0.5rem;">Deutsch</td>
+        </tr>
+        <tr style="border-bottom:1px solid #eee;">
+            <td style="padding:0.5rem;">西班牙语</td>
+            <td style="padding:0.5rem;font-family:monospace;">es</td>
+            <td style="padding:0.5rem;">Español</td>
+        </tr>
+    </table>
+</div>
+
+<div class="card">
+    <h2>安装说明</h2>
+
+    <h3>本地 Whisper（推荐）</h3>
+    <pre><code>pip install openai-whisper</code></pre>
+    <p class="hint">本地运行，无需 API Key，完全免费，支持 99 种语言</p>
+
+    <h3 style="margin-top:1rem;">视频处理（FFmpeg）</h3>
+    <pre><code># Windows: 下载 https://ffmpeg.org/download.html
+# Mac: brew install ffmpeg
+# Linux: sudo apt install ffmpeg</code></pre>
+
+    <h3 style="margin-top:1rem;">功能说明</h3>
+    <ul style="line-height:2;">
+        <li><strong>自动检测语言</strong>: Whisper 会自动识别音频语言，准确率高</li>
+        <li><strong>手动指定语言</strong>: 如果自动检测错误，可手动选择正确的语言</li>
+        <li><strong>多语言混合</strong>: 建议选择主要语言或使用自动检测</li>
+        <li>所有数据仅存储在本地 data 目录</li>
+    </ul>
+</div>
+
+<script>
+let currentConfig = {};
+
+// 切换转写方法时显示/隐藏选项
+function toggleTranscribeOptions() {
+    const method = document.getElementById('transcribe-method').value;
+    const whisperSection = document.getElementById('whisper-local-section');
+
+    if (method === 'local') {
+        whisperSection.style.display = 'block';
+    } else {
+        whisperSection.style.display = 'none';
+    }
+}
+
+// 加载配置
+async function loadConfig() {
+    const response = await fetch('/api/config');
+    currentConfig = await response.json();
+
+    // 显示当前 API Key
+    if (currentConfig.api_key_masked) {
+        document.getElementById('current-key').textContent = `当前: ${currentConfig.api_key_masked}`;
+    }
+
+    // 设置转写配置
+    document.getElementById('transcribe-method').value = currentConfig.transcribe_method || 'local';
+    document.getElementById('whisper-model').value = currentConfig.whisper_model || 'base';
+    document.getElementById('whisper-language').value = currentConfig.whisper_language || 'zh';
+    toggleTranscribeOptions();
+
+    // 设置视频配置
+    document.getElementById('extract-method').value = currentConfig.extract_method || 'ffmpeg-command';
+    document.getElementById('keep-video').checked = currentConfig.keep_video || false;
+    document.getElementById('auto-transcribe').checked = currentConfig.auto_transcribe || false;
+}
+
+// 保存转写配置
+document.getElementById('transcribe-config-form').onsubmit = async (e) => {
+    e.preventDefault();
+
+    const transcribeMethod = document.getElementById('transcribe-method').value;
+    const whisperModel = document.getElementById('whisper-model').value;
+    const whisperLanguage = document.getElementById('whisper-language').value;
+
+    const response = await fetch('/api/config', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+            transcribe_method: transcribeMethod,
+            whisper_model: whisperModel,
+            whisper_language: whisperLanguage
+        })
+    });
+
+    if (response.ok) {
+        const langName = document.querySelector(`#whisper-language option[value="${whisperLanguage}"]`).textContent;
+        alert(`转写配置保存成功！\n\n语言: ${langName}\n模型: ${whisperModel}`);
+        loadConfig();
+    } else {
+        alert('保存失败');
+    }
+};
+
+// 保存 API Key
+document.getElementById('api-config-form').onsubmit = async (e) => {
+    e.preventDefault();
+    const apiKey = document.getElementById('api-key').value;
+
+    if (!apiKey) {
+        alert('请输入 API Key');
+        return;
+    }
+
+    const response = await fetch('/api/config', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({api_key: apiKey})
+    });
+
+    if (response.ok) {
+        alert('API Key 保存成功！');
+        document.getElementById('api-key').value = '';
+        loadConfig();
+    } else {
+        alert('保存失败');
+    }
+};
+
+// 保存视频配置
+document.getElementById('video-config-form').onsubmit = async (e) => {
+    e.preventDefault();
+
+    const extractMethod = document.getElementById('extract-method').value;
+    const keepVideo = document.getElementById('keep-video').checked;
+    const autoTranscribe = document.getElementById('auto-transcribe').checked;
+
+    const response = await fetch('/api/config', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+            extract_method: extractMethod,
+            keep_video: keepVideo,
+            auto_transcribe: autoTranscribe
+        })
+    });
+
+    if (response.ok) {
+        alert('视频配置保存成功！');
+        loadConfig();
+    } else {
+        alert('保存失败');
+    }
+};
+
+loadConfig();
+</script>
+{% endblock %}
