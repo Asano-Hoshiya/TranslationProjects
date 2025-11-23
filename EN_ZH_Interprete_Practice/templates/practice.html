@@ -1,0 +1,1056 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="page-header">
+    <h1 id="material-title">交传听译练习</h1>
+    <div class="header-controls">
+        <button class="btn btn-sm" onclick="toggleText()">
+            <span id="toggle-text-btn">隐藏原文</span>
+        </button>
+        <button class="btn btn-sm" onclick="openAnalysesModal()">AI 分析</button>
+        <button class="btn btn-sm" onclick="toggleSegmentsText()">
+            <span id="toggle-segments-text-btn">隐藏片段文本</span>
+        </button>
+        <button class="btn btn-sm" onclick="reloadSegments()">刷新片段</button>
+    </div>
+</div>
+
+<!-- 视频预览区域：放在页面头部下方，紧跟页面内容顶部显示 -->
+<div id="video-preview" style="margin-top:1rem; display:none;">
+    <video id="video-player" controls style="width:100%; max-height:360px; display:block;"></video>
+</div>
+
+<!-- AI 分析模态框（默认隐藏） -->
+<div id="ai-modal" class="modal" style="display:none">
+    <div class="modal-content" style="position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);">
+        <div class="modal-header">
+            <h3>AI 分析</h3>
+        </div>
+        <div id="ai-modal-body" class="ai-modal-body">正在加载...</div>
+        <div class="modal-footer" style="margin-top:0.5rem; text-align:right;">
+            <button class="btn" onclick="closeAnalysesModal()">关闭</button>
+            <button class="btn" onclick="openAnalyzeDialog()">运行 AI 分析</button>
+        </div>
+    </div>
+</div>
+
+<div class="practice-container">
+    <div class="practice-left">
+        <div class="material-panel" id="text-panel">
+            <h3>原文</h3>
+            <div id="text-display">加载中...</div>
+        </div>
+
+        <div class="segments-panel" id="segments-panel" style="display:none;">
+            <h3>练习片段 <span id="segments-count"></span></h3>
+            <div id="segments-list"></div>
+        </div>
+    </div>
+
+    <div class="practice-right">
+        <div class="audio-panel">
+            <h3>原音频</h3>
+            <audio id="audio-player" controls style="width:100%;"></audio>
+            <p class="hint" id="audio-hint">点击片段或播放完整音频</p>
+            <div style="margin-top:0.5rem">
+                <button class="btn" onclick="generateSpeedVariants()">生成变速音频</button>
+            </div>
+        </div>
+
+        <div class="control-panel">
+            <button id="record-btn" class="btn btn-record" onclick="toggleRecording()">开始录音</button>
+            <button id="save-btn" class="btn" onclick="savePractice()" disabled>保存练习</button>
+        </div>
+
+        <div class="recording-panel">
+            <h3>你的录音</h3>
+            <audio id="recording-player" controls style="width:100%;"></audio>
+            <p class="hint" id="recording-hint">录音后可播放回听</p>
+        </div>
+
+        <!-- AI 分析已移至模态框（头部 AI 分析 按钮打开） -->
+    </div>
+</div>
+
+<script>
+let mediaRecorder;
+let audioChunks = [];
+let recordedBlob;
+const materialId = {{ material_id }};
+let originalAudioSrc = null;
+let originalVideoSrc = null;
+let segments = [];
+let textVisible = true;
+let segmentsTextVisible = true;
+let currentSegmentIndex = -1;
+let skipAudioEvent = false;
+let skipVideoEvent = false;
+
+async function loadMaterial() {
+    try {
+        const response = await fetch(`/api/materials/${materialId}`);
+
+        if (!response.ok) {
+            throw new Error('素材不存在或已被删除');
+        }
+
+        const material = await response.json();
+
+        if (!material) {
+            throw new Error('无法加载素材数据');
+        }
+
+        // 安全地设置标题
+        const titleEl = document.getElementById('material-title');
+        if (titleEl) {
+            titleEl.textContent = (material.title || '未命名素材');
+        }
+
+        // 安全地设置文本内容
+        const textDisplayEl = document.getElementById('text-display');
+        if (textDisplayEl) {
+            const cleanText = material.text_content ?
+                material.text_content.replace(/\[\d{2}:\d{2}\.\d{2}\]/g, '').trim() :
+                '暂无文本内容';
+            textDisplayEl.textContent = cleanText;
+        }
+
+        // 加载音频
+        if (material.audio_path) {
+            const audio = document.getElementById('audio-player');
+            if (audio) {
+                originalAudioSrc = `/data/${material.audio_path}`;
+                audio.src = originalAudioSrc;
+            }
+        }
+
+        // 加载视频（如果存在关联的视频文件）
+        if (material.video_path) {
+            const video = document.getElementById('video-player');
+            if (video) {
+                originalVideoSrc = `/data/${material.video_path}`;
+                video.src = originalVideoSrc;
+                video.muted = true; // 默认为静音预览
+                video.pause();
+                try { video.currentTime = 0; } catch(e) {}
+                video.style.display = 'block';
+                const vp = document.getElementById('video-preview');
+                if (vp) vp.style.display = 'block';
+            }
+        }
+
+        // 加载切分片段
+        await loadSegments();
+
+    } catch (error) {
+        console.error('加载素材失败:', error);
+        alert('加载素材失败: ' + error.message);
+        // 返回素材列表页
+        setTimeout(() => {
+            window.location.href = '/materials';
+        }, 1500);
+    }
+}
+
+async function loadSegments() {
+    try {
+        const segResponse = await fetch(`/api/materials/${materialId}/segments`);
+
+        if (!segResponse.ok) {
+            console.warn('无法加载切分片段');
+            return;
+        }
+
+        segments = await segResponse.json();
+
+        if (segments && segments.length > 0) {
+            displaySegments(segments);
+        } else {
+            const segmentsPanel = document.getElementById('segments-panel');
+            if (segmentsPanel) {
+                segmentsPanel.style.display = 'none';
+            }
+        }
+    } catch (error) {
+        console.error('加载片段失败:', error);
+    }
+}
+
+async function loadAnalysesForModal() {
+    try {
+        const resp = await fetch(`/api/materials/${materialId}/analyses`);
+        const container = document.getElementById('ai-modal-body');
+        if (!resp.ok) {
+            if (container) container.innerHTML = '<p style="color:#c00">无法加载 AI 分析结果</p>';
+            return;
+        }
+        const analyses = await resp.json();
+        if (!container) return;
+        if (!analyses || analyses.length === 0) {
+            container.innerHTML = '<p style="color:#666">暂无 AI 分析结果，点击“运行 AI 分析”开始。</p>';
+            return;
+        }
+
+        container.innerHTML = '';
+        analyses.forEach(a => {
+            let resultText = '';
+            try {
+                if (typeof a.result === 'object' && a.result !== null) {
+                    const parsed = a.result;
+                    if (parsed.summary) resultText = parsed.summary;
+                    else if (parsed.terms) resultText = (typeof parsed.terms === 'string') ? parsed.terms : JSON.stringify(parsed.terms, null, 2);
+                    else if (parsed.difficulty) resultText = parsed.difficulty;
+                    else resultText = JSON.stringify(parsed, null, 2);
+                } else {
+                    const raw = (a.result || '').trim();
+                    if (raw.startsWith('{') || raw.startsWith('[')) {
+                        try { const parsed = JSON.parse(raw); if (parsed && parsed.summary) resultText = parsed.summary; else resultText = JSON.stringify(parsed, null, 2); } catch (e) { resultText = raw; }
+                    } else {
+                        resultText = raw;
+                    }
+                }
+            } catch (e) {
+                resultText = (typeof a.result === 'string') ? a.result : JSON.stringify(a.result, null, 2);
+            }
+
+            const card = document.createElement('div');
+            card.className = 'ai-analysis-card';
+            const header = document.createElement('div');
+            header.style.display = 'flex';
+            header.style.justifyContent = 'space-between';
+            header.style.alignItems = 'center';
+            header.style.gap = '0.5rem';
+            header.innerHTML = `<div><strong>${escapeHtml(a.task)}</strong> <span style="color:#666;font-size:0.9em">${escapeHtml(a.created_at)}</span></div>`;
+
+            const body = document.createElement('div');
+            body.style.marginTop = '0.5rem';
+            body.innerHTML = renderMarkdownToHTML(resultText);
+
+            card.appendChild(header);
+            card.appendChild(body);
+            container.appendChild(card);
+        });
+    } catch (err) {
+        console.error('加载 AI 分析失败', err);
+        const container = document.getElementById('ai-modal-body');
+        if (container) container.innerHTML = '<p style="color:#c00">加载 AI 分析失败</p>';
+    }
+}
+
+function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, function (c) {
+        return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":"&#39;"}[c];
+    });
+}
+function renderMarkdownToHTML(md) {
+    if (!md) return '';
+    // 先做 HTML 转义，避免 XSS
+    const esc = escapeHtml(md);
+
+    // 处理代码块 ```...```（保留换行）
+    let processed = esc.replace(/```([\s\S]*?)```/g, function(_, code){
+        return '<pre><code>' + code + '</code></pre>';
+    });
+
+    const lines = processed.split('\n');
+    let out = '';
+    let inList = false;
+
+    for (let rawLine of lines) {
+        let line = rawLine.trimRight();
+        if (/^#{1,6}\s+/.test(line)) {
+            if (inList) { out += '</ul>'; inList = false; }
+            const m = line.match(/^(#{1,6})\s+(.*)$/);
+            const level = Math.min(6, m[1].length);
+            out += `<h${level}>${m[2].trim()}</h${level}>`;
+            continue;
+        }
+
+        if (/^[-*]\s+/.test(line)) {
+            if (!inList) { inList = true; out += '<ul>'; }
+            out += `<li>${line.replace(/^[-*]\s+/, '').trim()}</li>`;
+            continue;
+        }
+
+        if (inList) { out += '</ul>'; inList = false; }
+
+        if (line === '') {
+            out += '<p></p>';
+        } else {
+            out += `<p>${line}</p>`;
+        }
+    }
+
+    if (inList) out += '</ul>';
+
+    // inline formatting（注意顺序：先加粗，再行内代码，再斜体）
+    out = out.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+    out = out.replace(/`([^`]+)`/g, '<code>$1</code>');
+    out = out.replace(/\*(.+?)\*/g, '<em>$1</em>');
+
+    return out;
+}
+
+function openAnalyzeDialog() {
+    const choice = prompt('选择分析类型（1: 摘要, 2: 术语, 3: 难度）', '1');
+    if (!choice) return;
+    let task = 'summary';
+    if (choice === '2') task = 'terms';
+    else if (choice === '3') task = 'difficulty';
+    runMaterialAnalysis(task);
+}
+
+async function runMaterialAnalysis(task) {
+    try {
+        const materialResp = await fetch(`/api/materials/${materialId}`);
+        const material = await materialResp.json();
+        const cleanText = material.text_content ? material.text_content.replace(/\[\d{2}:\d{2}\.\d{2}\]/g, '').trim() : '';
+        if (!cleanText) return alert('该素材没有文本内容');
+
+        // Call analyze API and ask backend to persist with material_id
+        const resp = await fetch('/api/chatgpt/analyze', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ text: cleanText, task: task, material_id: materialId })
+        });
+
+        const result = await resp.json();
+        if (resp.ok) {
+            // refresh modal analyses list (if modal open)
+            await loadAnalysesForModal();
+            const tip = document.getElementById('audio-hint');
+            if (tip) tip.textContent = 'AI 分析已保存';
+        } else {
+            alert('分析失败: ' + (result.error || result.detail || '未知错误'));
+        }
+    } catch (err) {
+        alert('分析失败: ' + err.message);
+    }
+}
+
+async function generateSpeedVariants() {
+    if (!confirm('生成变速音频会为每个片段创建多个文件，确认继续吗？')) return;
+
+    // 暂停音视频，释放文件句柄
+    const audioEl = document.getElementById('audio-player');
+    const videoEl = document.getElementById('video-player');
+    try { if (audioEl) { audioEl.pause(); } } catch(e) {}
+    try { if (videoEl) { videoEl.pause(); } } catch(e) {}
+
+    try {
+        const resp = await fetch(`/api/materials/${materialId}/segments/generate-speeds`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ speeds: [0.5, 0.75, 1.25, 1.5, 2.0] })
+        });
+
+        const data = await resp.json();
+        if (resp.ok) {
+            alert(`已生成：${data.created} 个变速文件，失败 ${data.failed}（目标片段 ${data.total_segments}）`);
+            // 刷新片段以读取 audio_variants 信息
+            await loadSegments();
+        } else {
+            alert('生成失败: ' + (data.error || JSON.stringify(data)));
+        }
+    } catch (e) {
+        alert('生成失败: ' + e.message);
+    }
+}
+
+async function reloadSegments() {
+    // pause audio/video to release文件占用
+    const audio = document.getElementById('audio-player');
+    const video = document.getElementById('video-player');
+    try { if (audio) { audio.pause(); audio.src = audio.src; } } catch(e) {}
+    try { if (video) { video.pause(); video.src = video.src; } } catch(e) {}
+
+    await loadSegments();
+    alert('片段已刷新！');
+}
+
+function displaySegments(segs) {
+    const segmentsPanel = document.getElementById('segments-panel');
+    const segmentsList = document.getElementById('segments-list');
+    const segmentsCount = document.getElementById('segments-count');
+
+    if (!segmentsPanel || !segmentsList || !segmentsCount) {
+        console.error('片段显示元素不存在');
+        return;
+    }
+
+    segmentsPanel.style.display = 'block';
+    segmentsList.innerHTML = '';
+
+    const audioCount = segs.filter(s => s.audio_path).length;
+    segmentsCount.textContent = `(共 ${segs.length} 段, ${audioCount} 个音频)`;
+
+    segs.forEach((seg, index) => {
+        const segCard = document.createElement('div');
+        segCard.className = 'segment-card';
+        segCard.id = `segment-${index}`;
+
+        const hasAudio = !!seg.audio_path;
+        const hasTimestamp = seg.start_time !== null;
+
+        let timeInfo = '';
+        if (hasTimestamp) {
+            timeInfo = `<span class="time-tag">${formatTime(seg.start_time)} - ${formatTime(seg.end_time)}</span>`;
+        }
+
+        let duration = '';
+        if (seg.start_time !== null && seg.end_time !== null) {
+            duration = `<span class="duration-tag">${Math.round(seg.end_time - seg.start_time)}秒</span>`;
+        }
+
+        let audioIndicator = '';
+        if (hasAudio) {
+            audioIndicator = '<span class="audio-indicator">音频</span>';
+        } else if (hasTimestamp) {
+            audioIndicator = '<span class="audio-indicator timestamp">时间戳</span>';
+        }
+
+        segCard.innerHTML = `
+            <div class="segment-header">
+                <div class="segment-number">${index + 1}</div>
+                <div style="display:flex;align-items:center;gap:0.5rem;">
+                    <div>${timeInfo}</div>
+                    <div>${audioIndicator}</div>
+                </div>
+                <select id="speed-select-${index}" style="margin-left:0.5rem;">
+                    <option value="0.5">0.5x</option>
+                    <option value="0.75">0.75x</option>
+                    <option value="1.0" selected>1x</option>
+                    <option value="1.25">1.25x</option>
+                    <option value="1.5">1.5x</option>
+                    <option value="2.0">2x</option>
+                </select>
+                <button class="btn-play-segment" onclick="playSegment(${index})">播放</button>
+            </div>
+            <div class="segment-text">${escapeHtml(seg.text || '')}</div>
+        `;
+
+        segmentsList.appendChild(segCard);
+    });
+}
+
+function playSegment(index) {
+    const segment = segments[index];
+    const audio = document.getElementById('audio-player');
+    const audioHintEl = document.getElementById('audio-hint');
+
+    if (!audio) {
+        alert('音频播放器未初始化');
+        return;
+    }
+
+    // 高亮当前片段
+    document.querySelectorAll('.segment-card').forEach(card => {
+        card.classList.remove('active');
+    });
+    const currentCard = document.getElementById(`segment-${index}`);
+    if (currentCard) {
+        currentCard.classList.add('active');
+        currentCard.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+
+    currentSegmentIndex = index;
+
+    if (segment.audio_path) {
+        // 首先尝试直接播放已生成的变速文件（如果存在）
+        const idx = segment.audio_path.lastIndexOf('.');
+        const base = idx >= 0 ? segment.audio_path.substring(0, idx) : segment.audio_path;
+        const ext = idx >= 0 ? segment.audio_path.substring(idx) : '.mp3';
+
+        const speedSelect = document.getElementById(`speed-select-${index}`);
+        const desiredSpeed = speedSelect ? parseFloat(speedSelect.value) : 1.0;
+
+        const variantRel = `${base}_${desiredSpeed}x${ext}`;
+        const variantUrl = `/data/${variantRel}`;
+
+        // 先尝试变速文件（变速文件是为片段导出的独立文件，audio 不应被 seek）
+        audio.src = variantUrl;
+        audio.load();
+        audio.playbackRate = 1.0;
+
+        // 清理之前的事件，防止重复绑定
+        audio.onended = null;
+        audio.onloadeddata = () => {
+            // 直接播放变速文件（文件本身是片段裁剪，不要对 audio 再 seek）
+            audio.play().catch(e => {
+                alert('音频播放失败: ' + e.message);
+            });
+
+            // 当使用独立片段音频时，视频按音频实际长度播放：
+            // 将视频定位到素材时间轴的起点并播放，依赖 audio 的 ended 事件来暂停视频。
+            const video = document.getElementById('video-player');
+            if (video && originalVideoSrc && segment.start_time !== null) {
+                try { video.currentTime = segment.start_time; } catch (e) {}
+                video.playbackRate = desiredSpeed;
+                // 使用 skip 标记避免触发双向事件回路
+                skipVideoEvent = true;
+                video.play().catch(() => {});
+            }
+
+            // 当片段音频播放结束时，暂停视频（以音频实际时长为准）
+            audio.onended = () => {
+                const video2 = document.getElementById('video-player');
+                if (video2) {
+                    skipVideoEvent = true;
+                    try { video2.pause(); } catch (e) {}
+                }
+            };
+        };
+
+        // 如果变速文件不存在或加载失败，回退到原始片段并使用 playbackRate
+        audio.onerror = () => {
+            // 回退到片段的原始导出音频（通常是独立文件），不要对 audio seek
+            audio.src = `/data/${segment.audio_path}`;
+            audio.load();
+            // 清理之前的事件
+            audio.onended = null;
+            audio.onloadeddata = () => {
+                audio.playbackRate = desiredSpeed;
+                audio.play().catch(e => {
+                    alert('音频播放失败: ' + e.message);
+                });
+                // 视频同步播放（视频仍按原始时间轴跳到 start_time），并以音频结束为准暂停
+                const video = document.getElementById('video-player');
+                if (video && originalVideoSrc && segment.start_time !== null) {
+                    try { video.currentTime = segment.start_time; } catch (e) {}
+                    video.playbackRate = desiredSpeed;
+                    skipVideoEvent = true;
+                    video.play().catch(() => {});
+                }
+
+                audio.onended = () => {
+                    const video2 = document.getElementById('video-player');
+                    if (video2) {
+                        skipVideoEvent = true;
+                        try { video2.pause(); } catch (e) {}
+                    }
+                };
+            };
+        };
+
+        if (audioHintEl) {
+            audioHintEl.textContent = `正在播放片段 ${index + 1}/${segments.length}`;
+        }
+    }
+    else if (segment.start_time !== null && originalAudioSrc) {
+        const speedSelect = document.getElementById(`speed-select-${index}`);
+        const desiredSpeed = speedSelect ? parseFloat(speedSelect.value) : 1.0;
+
+        audio.src = originalAudioSrc;
+        audio.load();
+
+        audio.onloadeddata = () => {
+            // 对于整段音频，需要从素材时间轴定位到片段开始处
+            try { audio.currentTime = segment.start_time; } catch (e) {}
+            audio.playbackRate = desiredSpeed;
+            audio.play();
+
+            if (segment.end_time !== null) {
+                const checkSegmentEnd = () => {
+                    if (audio.currentTime >= segment.end_time) {
+                        audio.pause();
+                        audio.removeEventListener('timeupdate', checkSegmentEnd);
+                        if (audioHintEl) {
+                            audioHintEl.textContent = `片段 ${index + 1} 播放完成`;
+                        }
+                    }
+                };
+                audio.addEventListener('timeupdate', checkSegmentEnd);
+            }
+
+            // 同步视频
+            const video = document.getElementById('video-player');
+            if (video && originalVideoSrc) {
+                video.currentTime = segment.start_time;
+                video.playbackRate = desiredSpeed;
+                video.play().catch(() => {});
+            }
+        };
+
+        if (audioHintEl) {
+            audioHintEl.textContent = `正在播放片段 ${index + 1}/${segments.length}`;
+        }
+    }
+    else {
+        alert('该片段没有音频信息');
+    }
+}
+
+function toggleText() {
+    const textPanel = document.getElementById('text-panel');
+    const btn = document.getElementById('toggle-text-btn');
+
+    if (!textPanel || !btn) return;
+
+    textVisible = !textVisible;
+
+    if (textVisible) {
+        textPanel.style.display = 'block';
+        btn.textContent = '隐藏原文';
+    } else {
+        textPanel.style.display = 'none';
+        btn.textContent = '显示原文';
+    }
+}
+
+function toggleSegmentsText() {
+    const btn = document.getElementById('toggle-segments-text-btn');
+
+    if (!btn) return;
+
+    segmentsTextVisible = !segmentsTextVisible;
+
+    const segmentTexts = document.querySelectorAll('.segment-text');
+
+    if (segmentsTextVisible) {
+        segmentTexts.forEach(text => text.style.display = 'block');
+        btn.textContent = '隐藏片段文本';
+    } else {
+        segmentTexts.forEach(text => text.style.display = 'none');
+        btn.textContent = '显示片段文本';
+    }
+}
+
+function formatTime(seconds) {
+    if (seconds === null || seconds === undefined) return '--:--';
+    const mins = Math.floor(seconds / 60);
+    const secs = Math.floor(seconds % 60);
+    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+}
+
+async function toggleRecording() {
+    const btn = document.getElementById('record-btn');
+    const hint = document.getElementById('recording-hint');
+
+    if (!btn || !hint) return;
+
+    if (!mediaRecorder || mediaRecorder.state === 'inactive') {
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            mediaRecorder = new MediaRecorder(stream);
+            audioChunks = [];
+
+            mediaRecorder.ondataavailable = (e) => {
+                audioChunks.push(e.data);
+            };
+
+            mediaRecorder.onstop = () => {
+                recordedBlob = new Blob(audioChunks, { type: 'audio/webm' });
+                const url = URL.createObjectURL(recordedBlob);
+                const recordingPlayer = document.getElementById('recording-player');
+                if (recordingPlayer) {
+                    recordingPlayer.src = url;
+                }
+                const saveBtn = document.getElementById('save-btn');
+                if (saveBtn) {
+                    saveBtn.disabled = false;
+                }
+                hint.textContent = '录音完成，可以播放回听或保存';
+            };
+
+            mediaRecorder.start();
+            btn.textContent = '停止录音';
+            btn.classList.add('recording');
+            hint.textContent = '正在录音中...';
+        } catch (error) {
+            alert('无法访问麦克风: ' + error.message);
+        }
+    } else {
+        mediaRecorder.stop();
+        mediaRecorder.stream.getTracks().forEach(track => track.stop());
+        btn.textContent = '开始录音';
+        btn.classList.remove('recording');
+    }
+}
+
+async function savePractice() {
+    if (!recordedBlob) {
+        alert('没有可保存的录音');
+        return;
+    }
+
+    const formData = new FormData();
+    formData.append('material_id', materialId);
+    formData.append('mode', 'interpreting');
+    formData.append('audio', recordedBlob, 'recording.webm');
+
+    try {
+        const response = await fetch('/api/practice/save', {
+            method: 'POST',
+            body: formData
+        });
+
+        if (response.ok) {
+            alert('练习保存成功！');
+            const saveBtn = document.getElementById('save-btn');
+            if (saveBtn) {
+                saveBtn.disabled = true;
+            }
+            const recordingHint = document.getElementById('recording-hint');
+            if (recordingHint) {
+                recordingHint.textContent = '已保存';
+            }
+        } else {
+            alert('保存失败');
+        }
+    } catch (error) {
+        alert('保存失败: ' + error.message);
+    }
+}
+
+// 页面加载
+loadMaterial();
+
+// 监听音频播放结束
+const audioPlayer = document.getElementById('audio-player');
+if (audioPlayer) {
+    audioPlayer.addEventListener('ended', () => {
+        const audioHintEl = document.getElementById('audio-hint');
+        if (audioHintEl) {
+            audioHintEl.textContent = '播放完成';
+        }
+        document.querySelectorAll('.segment-card').forEach(card => {
+            card.classList.remove('active');
+        });
+        const video = document.getElementById('video-player');
+        if (video) {
+            try { video.pause(); } catch(e) {}
+        }
+    });
+    // 当音频被暂停时，也暂停视频（避免视频在隐藏或不可见时仍然播放）
+    audioPlayer.addEventListener('pause', () => {
+        const video = document.getElementById('video-player');
+        if (video) {
+            try { video.pause(); } catch(e) {}
+        }
+    });
+
+    // 当音频播放时，触发视频播放（双向同步，避免循环触发使用 skip 标记）
+    audioPlayer.addEventListener('play', () => {
+        const video = document.getElementById('video-player');
+        if (!video) return;
+        if (skipAudioEvent) { skipAudioEvent = false; return; }
+        try {
+            if (video.paused) {
+                skipVideoEvent = true;
+                video.play().catch(() => {});
+            }
+        } catch (e) {}
+    });
+}
+
+// 监听视频的 play/pause，实现反向同步控制音频
+const videoPlayer = document.getElementById('video-player');
+if (videoPlayer) {
+    videoPlayer.addEventListener('play', () => {
+        const audio = document.getElementById('audio-player');
+        if (!audio) return;
+        if (skipVideoEvent) { skipVideoEvent = false; return; }
+        try {
+            if (audio.paused) {
+                skipAudioEvent = true;
+                audio.play().catch(() => {});
+            }
+        } catch (e) {}
+    });
+
+    videoPlayer.addEventListener('pause', () => {
+        const audio = document.getElementById('audio-player');
+        if (!audio) return;
+        if (skipVideoEvent) { skipVideoEvent = false; return; }
+        try {
+            if (!audio.paused) {
+                skipAudioEvent = true;
+                audio.pause();
+            }
+        } catch (e) {}
+    });
+}
+
+// 打开 / 关闭 AI 分析模态框
+function openAnalysesModal() {
+    const modal = document.getElementById('ai-modal');
+    if (!modal) return;
+    modal.style.display = 'block';
+    loadAnalysesForModal();
+}
+
+function closeAnalysesModal() {
+    const modal = document.getElementById('ai-modal');
+    if (!modal) return;
+    modal.style.display = 'none';
+}
+</script>
+
+<style>
+.page-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 2rem 0;
+    border-bottom: 1px solid #000;
+    margin-bottom: 2rem;
+}
+
+.header-controls {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
+
+.practice-container {
+    display: grid;
+    grid-template-columns: 1fr 420px;
+    gap: 12px;
+    margin-top: 1rem;
+    /* 固定视口高度，防止页面整体滚动 */
+    height: calc(100vh - 120px);
+    overflow: hidden;
+}
+
+.practice-left,
+.practice-right {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    overflow-y: auto;
+    padding: 8px;
+    box-sizing: border-box;
+}
+
+.material-panel,
+.segments-panel,
+.audio-panel,
+.control-panel,
+.recording-panel {
+    border: 1px solid #000;
+    padding: 1.5rem;
+}
+
+.material-panel h3,
+.segments-panel h3,
+.audio-panel h3,
+.recording-panel h3 {
+    margin-bottom: 1rem;
+}
+
+#text-display {
+    white-space: pre-wrap;
+    line-height: 2;
+    padding: 1rem;
+    background: #f5f5f5;
+    border: 1px solid #ddd;
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+#segments-list {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    max-height: 600px;
+    overflow-y: auto;
+}
+
+.ai-panel {
+    border: 1px solid #ddd;
+    padding: 1rem;
+    background: #fff;
+    max-height: 320px;
+    overflow-y: auto;
+}
+
+.video-preview {
+    width: 100%;
+    max-height: 260px;
+    overflow: hidden;
+    background: #000;
+}
+
+.video-preview video {
+    width: 100%;
+    height: auto;
+    display: block;
+}
+
+/* Modal 样式 */
+.modal {
+    position: fixed;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0,0,0,0.4);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+}
+.modal-content {
+    background: #fff;
+    width: min(900px, 95%);
+    max-height: 80vh;
+    overflow: hidden;
+    border-radius: 6px;
+    box-shadow: 0 6px 24px rgba(0,0,0,0.3);
+    display: flex;
+    flex-direction: column;
+    padding: 12px;
+}
+.modal-header {
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+}
+.ai-modal-body {
+    overflow-y: auto;
+    padding: 8px 4px;
+}
+.ai-analysis-card {
+    border-bottom: 1px solid #eee;
+    padding: 8px 0;
+}
+.ai-analysis-card:last-child { border-bottom: none; }
+
+.segment-card {
+    border: 1px solid #ddd;
+    padding: 1rem;
+    background: #fafafa;
+    transition: all 0.2s;
+}
+
+.segment-card:hover {
+    background: #f0f0f0;
+    border-color: #999;
+}
+
+.segment-card.active {
+    border-color: #000;
+    background: #fff;
+    box-shadow: 0 0 0 2px #000;
+}
+
+.segment-header {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 0.5rem;
+    flex-wrap: wrap;
+}
+
+.segment-number {
+    display: inline-block;
+    min-width: 28px;
+    height: 28px;
+    background: #000;
+    color: #fff;
+    text-align: center;
+    line-height: 28px;
+    font-size: 0.9em;
+    font-weight: bold;
+}
+
+.time-tag {
+    font-size: 0.85em;
+    color: #666;
+    font-family: 'Courier New', monospace;
+}
+
+.duration-tag {
+    font-size: 0.8em;
+    color: #fff;
+    background: #666;
+    padding: 2px 6px;
+}
+
+.audio-indicator {
+    font-size: 0.75em;
+    color: #fff;
+    background: #000;
+    padding: 2px 6px;
+}
+
+.audio-indicator.timestamp {
+    background: #999;
+}
+
+.btn-play-segment {
+    margin-left: auto;
+    padding: 0.4rem 1rem;
+    background: #000;
+    color: #fff;
+    border: 1px solid #000;
+    cursor: pointer;
+    font-size: 0.85em;
+    transition: all 0.2s;
+}
+
+.btn-play-segment:hover {
+    background: #fff;
+    color: #000;
+}
+
+.segment-text {
+    line-height: 1.8;
+    padding: 0.5rem 0;
+}
+
+.btn-record {
+    background: #000;
+    color: #fff;
+}
+
+.btn-record.recording {
+    background: #fff;
+    color: #000;
+    border-color: #000;
+    animation: pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse {
+    0%, 100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.6;
+    }
+}
+
+.control-panel {
+    display: flex;
+    gap: 1rem;
+}
+
+.control-panel .btn {
+    flex: 1;
+}
+
+.hint {
+    margin-top: 0.5rem;
+    font-size: 0.9em;
+    color: #666;
+}
+
+#segments-count {
+    font-size: 0.85em;
+    color: #666;
+    font-weight: normal;
+}
+
+@media (max-width: 968px) {
+    .practice-container {
+        grid-template-columns: 1fr;
+    }
+
+    .page-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 1rem;
+    }
+}
+</style>
+{% endblock %}
