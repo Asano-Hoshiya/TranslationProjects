@@ -489,6 +489,92 @@ input[type="file"]:hover {
     color: #000;
 }
 
+/* 黑白极简复选框：practice-checkbox / practicing-checkbox */
+.practice-checkbox,
+.practicing-checkbox {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 20px;
+  height: 20px;
+  border: 2px solid #111;
+  border-radius: 4px;
+  display: inline-block;
+  vertical-align: middle;
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  background: #fff;
+  cursor: pointer;
+  position: relative;
+  transition: background .12s ease, border-color .12s ease;
+}
+
+/* 聚焦样式 */
+.practice-checkbox:focus,
+.practicing-checkbox:focus {
+  outline: 3px solid rgba(0,0,0,0.08);
+  outline-offset: 2px;
+}
+
+/* 选中状态 */
+.practice-checkbox:checked,
+.practicing-checkbox:checked {
+  background: #111;
+  border-color: #111;
+}
+
+.practice-checkbox:checked::after,
+.practicing-checkbox:checked::after {
+    content: "";
+    position: absolute;
+    /* center the check mark within the checkbox box */
+    left: 50%;
+    top: 50%;
+    width: 6px;
+    height: 11px;
+    border: solid #fff;
+    border-width: 0 2px 2px 0;
+    transform: translate(-50%, -50%) rotate(45deg);
+    box-sizing: border-box;
+}
+
+/* 禁用态 */
+.practice-checkbox:disabled,
+.practicing-checkbox:disabled {
+  border-color: #bbb;
+  background: #f8f8f8;
+  cursor: not-allowed;
+  opacity: 0.9;
+}
+
+/* 与 label 的距离 */
+.practice-checkbox + label,
+.practicing-checkbox + label {
+  margin-left: 8px;
+  color: #111;
+  font-size: 14px;
+  vertical-align: middle;
+  user-select: none;
+}
+
+/* 小屏幕适配 */
+@media (max-width: 420px) {
+  .practice-checkbox,
+  .practicing-checkbox {
+    width: 18px;
+    height: 18px;
+  }
+    .practice-checkbox:checked::after,
+    .practicing-checkbox:checked::after {
+        /* smaller checkmark but keep centered */
+        left: 50%;
+        top: 50%;
+        width: 5px;
+        height: 9px;
+        transform: translate(-50%, -50%) rotate(45deg);
+    }
+}
+
 .segment-text {
     line-height: 1.8;
     padding: 0.5rem 0;

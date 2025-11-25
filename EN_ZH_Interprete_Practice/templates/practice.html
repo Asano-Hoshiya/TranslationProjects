@@ -5,11 +5,11 @@
     <h1 id="material-title">交传听译练习</h1>
     <div class="header-controls">
         <button class="btn btn-sm" onclick="toggleText()">
-            <span id="toggle-text-btn">隐藏原文</span>
+            <span id="toggle-text-btn">显示原文</span>
         </button>
         <button class="btn btn-sm" onclick="openAnalysesModal()">AI 分析</button>
         <button class="btn btn-sm" onclick="toggleSegmentsText()">
-            <span id="toggle-segments-text-btn">隐藏片段文本</span>
+            <span id="toggle-segments-text-btn">显示片段文本</span>
         </button>
         <button class="btn btn-sm" onclick="reloadSegments()">刷新片段</button>
     </div>
@@ -42,7 +42,12 @@
         </div>
 
         <div class="segments-panel" id="segments-panel" style="display:none;">
-            <h3>练习片段 <span id="segments-count"></span></h3>
+            <h3>
+                练习片段 <span id="segments-count"></span>
+                <select id="segment-jump" class="segment-jump-select" title="跳转到片段">
+                    <option value="">跳转片段…</option>
+                </select>
+            </h3>
             <div id="segments-list"></div>
         </div>
     </div>
@@ -80,11 +85,30 @@ const materialId = {{ material_id }};
 let originalAudioSrc = null;
 let originalVideoSrc = null;
 let segments = [];
-let textVisible = true;
-let segmentsTextVisible = true;
+let textVisible = false;
+let segmentsTextVisible = false;
 let currentSegmentIndex = -1;
 let skipAudioEvent = false;
 let skipVideoEvent = false;
+
+function applyInitialVisibility() {
+    // Ensure the original text panel and segment texts match the JS state variables
+    try {
+        const textPanel = document.getElementById('text-panel');
+        const toggleBtn = document.getElementById('toggle-text-btn');
+        if (textPanel) {
+            textPanel.style.display = textVisible ? 'block' : 'none';
+        }
+        if (toggleBtn) {
+            toggleBtn.textContent = textVisible ? '隐藏原文' : '显示原文';
+        }
+
+        const segmentTexts = document.querySelectorAll('.segment-text');
+        segmentTexts.forEach(t => {
+            t.style.display = segmentsTextVisible ? 'block' : 'none';
+        });
+    } catch (e) { /* ignore DOM timing issues */ }
+}
 
 async function loadMaterial() {
     try {
@@ -416,7 +440,7 @@ function displaySegments(segs) {
                     <div>${timeInfo}</div>
                     <div>${audioIndicator}</div>
                 </div>
-                <select id="speed-select-${index}" style="margin-left:0.5rem;">
+                    <select id="speed-select-${index}" style="margin-left:0.5rem;">
                     <option value="0.5">0.5x</option>
                     <option value="0.75">0.75x</option>
                     <option value="1.0" selected>1x</option>
@@ -425,12 +449,25 @@ function displaySegments(segs) {
                     <option value="2.0">2x</option>
                 </select>
                 <button class="btn-play-segment" onclick="playSegment(${index})">播放</button>
+                <label class="practice-checkbox-label">
+                    <input type="checkbox" id="practice-checked-${index}" data-index="${index}" class="practice-checkbox" />
+                    <span class="practice-checkbox-text">已练习</span>
+                </label>
+                <label class="practicing-checkbox-label">
+                    <input type="checkbox" id="practicing-checked-${index}" data-index="${index}" class="practicing-checkbox" />
+                    <span class="practicing-checkbox-text">正在练习</span>
+                </label>
             </div>
             <div class="segment-text">${escapeHtml(seg.text || '')}</div>
         `;
 
-        segmentsList.appendChild(segCard);
-    });
+            segmentsList.appendChild(segCard);
+        });
+
+        // after building the list, apply saved 'practiced' and 'practicing' flags and refresh dropdown
+        applyPracticedFlags();
+        applyPracticingFlags();
+        refreshSegmentDropdown();
 }
 
 function playSegment(index) {
@@ -450,7 +487,6 @@ function playSegment(index) {
     const currentCard = document.getElementById(`segment-${index}`);
     if (currentCard) {
         currentCard.classList.add('active');
-        currentCard.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     }
 
     currentSegmentIndex = index;
@@ -580,6 +616,186 @@ function playSegment(index) {
     }
 }
 
+// -------------------------
+// Practiced checkbox helpers
+// -------------------------
+function practicedStorageKey(mid) {
+    return `practiced:${mid}`;
+}
+
+function loadPracticedMap() {
+    try {
+        const raw = localStorage.getItem(practicedStorageKey(materialId));
+        if (!raw) return {};
+        return JSON.parse(raw) || {};
+    } catch (e) { return {}; }
+}
+
+function savePracticedMap(map) {
+    try {
+        localStorage.setItem(practicedStorageKey(materialId), JSON.stringify(map));
+    } catch (e) {
+        console.warn('无法保存已练习状态', e);
+    }
+}
+
+function setPracticedFlag(index, val) {
+    const map = loadPracticedMap();
+    map[String(index)] = !!val;
+    savePracticedMap(map);
+}
+
+function applyPracticedFlags() {
+    const map = loadPracticedMap();
+    const container = document.getElementById('segments-list');
+    if (!container) return;
+    container.querySelectorAll('.segment-card').forEach(card => {
+        const id = card.id;
+        const idx = id ? id.replace('segment-', '') : null;
+        if (idx !== null && idx !== '') {
+            const ch = card.querySelector('.practice-checkbox');
+            const checked = !!map[String(idx)];
+            if (ch) ch.checked = checked;
+            if (checked) card.classList.add('completed'); else card.classList.remove('completed');
+        }
+    });
+}
+
+// -------------------------
+// Practicing (正在练习) helpers
+// -------------------------
+function practicingStorageKey(mid) {
+    return `practicing:${mid}`;
+}
+
+function loadPracticingMap() {
+    try {
+        const raw = localStorage.getItem(practicingStorageKey(materialId));
+        if (!raw) return {};
+        return JSON.parse(raw) || {};
+    } catch (e) { return {}; }
+}
+
+function savePracticingMap(map) {
+    try {
+        localStorage.setItem(practicingStorageKey(materialId), JSON.stringify(map));
+    } catch (e) { console.warn('无法保存正在练习状态', e); }
+}
+
+function setPracticingFlag(index, val) {
+    const map = loadPracticingMap();
+    map[String(index)] = !!val;
+    savePracticingMap(map);
+}
+
+function applyPracticingFlags() {
+    const map = loadPracticingMap();
+    const container = document.getElementById('segments-list');
+    if (!container) return;
+    container.querySelectorAll('.segment-card').forEach(card => {
+        const id = card.id;
+        const idx = id ? id.replace('segment-', '') : null;
+        if (idx !== null && idx !== '') {
+            const ch = card.querySelector('.practicing-checkbox');
+            const checked = !!map[String(idx)];
+            if (ch) ch.checked = checked;
+            if (checked) card.classList.add('practicing'); else card.classList.remove('practicing');
+            // mutual exclusivity: ensure completed not set when practicing
+            if (checked) card.classList.remove('completed');
+        }
+    });
+}
+
+function refreshSegmentDropdown() {
+    const sel = document.getElementById('segment-jump');
+    if (!sel) return;
+    // remove existing options except the placeholder
+    sel.innerHTML = '<option value="">跳转片段…</option>';
+    const map = loadPracticedMap();
+    const list = document.getElementById('segments-list');
+    if (!list) return;
+    const cards = Array.from(list.querySelectorAll('.segment-card'));
+    cards.forEach((card, idx) => {
+        const checked = !!map[String(idx)];
+        const title = card.dataset.title || `${idx + 1}`;
+        const opt = document.createElement('option');
+        opt.value = String(idx);
+        opt.textContent = `${checked ? '已练习 - ' : '未练习 - '}${title}`;
+        if (checked) opt.dataset.practiced = '1';
+        sel.appendChild(opt);
+    });
+
+    // when user selects from dropdown, jump to that segment smoothly
+    sel.onchange = () => {
+        const val = sel.value;
+        if (!val) return;
+        const idx = parseInt(val, 10);
+        if (isNaN(idx)) return;
+        const target = list.querySelectorAll('.segment-card')[idx];
+        if (target) {
+            const maxScroll = Math.max(0, list.scrollHeight - list.clientHeight);
+            const dest = Math.min(target.offsetTop, maxScroll);
+            list.scrollTo({ top: dest, behavior: 'smooth' });
+            const cb = target.querySelector('.practice-checkbox');
+            if (cb) cb.focus();
+        }
+    };
+}
+
+// Event delegation for checkboxes
+document.addEventListener('change', function (e) {
+    if (!e.target) return;
+    if (e.target.classList && e.target.classList.contains('practice-checkbox')) {
+        const idx = parseInt(e.target.dataset.index || '-1');
+        const checked = !!e.target.checked;
+        // If user marks a segment as '已练习', remove '正在练习' for that segment
+        const card = document.getElementById(`segment-${idx}`);
+        const practicingInput = card ? card.querySelector('.practicing-checkbox') : null;
+        if (checked && practicingInput && practicingInput.checked) {
+            practicingInput.checked = false;
+            setPracticingFlag(idx, false);
+            if (card) card.classList.remove('practicing');
+        }
+
+        setPracticedFlag(idx, checked);
+        if (card) {
+            if (checked) card.classList.add('completed'); else card.classList.remove('completed');
+        }
+        // refresh dropdown labels when a checkbox changes
+        try { refreshSegmentDropdown(); } catch (e) {}
+    }
+
+    if (e.target.classList && e.target.classList.contains('practicing-checkbox')) {
+        const idx = parseInt(e.target.dataset.index || '-1');
+        const checked = !!e.target.checked;
+        const card = document.getElementById(`segment-${idx}`);
+        const practiceInput = card ? card.querySelector('.practice-checkbox') : null;
+        if (checked && practiceInput && practiceInput.checked) {
+            // uncheck '已练习' if user starts practicing
+            practiceInput.checked = false;
+            setPracticedFlag(idx, false);
+            if (card) card.classList.remove('completed');
+        }
+
+        setPracticingFlag(idx, checked);
+        if (card) {
+            if (checked) card.classList.add('practicing'); else card.classList.remove('practicing');
+        }
+        try { refreshSegmentDropdown(); } catch (e) {}
+    }
+});
+
+function isScrolledToBottom(el) {
+    if (!el) return false;
+    return (el.scrollTop + el.clientHeight) >= (el.scrollHeight - 8);
+}
+
+function scrollSegmentsToFirstUnchecked() {
+    const container = document.getElementById('segments-list');
+    if (!container) return;
+    // Auto-scroll removed: user requested no automatic scrolling.
+}
+
 function toggleText() {
     const textPanel = document.getElementById('text-panel');
     const btn = document.getElementById('toggle-text-btn');
@@ -703,7 +919,10 @@ async function savePractice() {
 }
 
 // 页面加载
-loadMaterial();
+loadMaterial().then(() => {
+    // After material is loaded, apply initial visibility settings
+    applyInitialVisibility();
+});
 
 // 监听音频播放结束
 const audioPlayer = document.getElementById('audio-player');
@@ -932,6 +1151,30 @@ function closeAnalysesModal() {
     border-color: #000;
     background: #fff;
     box-shadow: 0 0 0 2px #000;
+}
+
+.segment-card.completed {
+    opacity: 0.75;
+    background: #f7fff7;
+    border-color: #7fbf7f;
+}
+
+.segment-card.practicing {
+    opacity: 1;
+    background: #fff7e6;
+    border-color: #ffb74d;
+}
+
+.practicing-checkbox-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    margin-left: 0.4rem;
+}
+/* removed explicit size override so checkboxes inherit global styles */
+.practicing-checkbox-text {
+    font-size: 0.9em;
+    color: #b55b00;
 }
 
 .segment-header {
